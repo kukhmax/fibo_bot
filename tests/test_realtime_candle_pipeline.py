@@ -2,6 +2,7 @@ import unittest
 
 from core.data import Candle
 from core.data import RealtimeCandlePipeline
+from core.data import RuntimeDataQualityMonitor
 from core.data import Tick
 
 
@@ -48,6 +49,26 @@ class TestRealtimeCandlePipeline(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(len(emitted), 2)
         self.assertEqual(emitted[1].open_time_ms, 60_000)
+
+    async def test_pipeline_emits_quality_report(self) -> None:
+        quality_reports = []
+        monitor = RuntimeDataQualityMonitor(
+            symbol="BTC",
+            timeframe="1m",
+            max_timestamp_drift_ms=1_000,
+            clock_ms=lambda: 10_000,
+        )
+        pipeline = RealtimeCandlePipeline(
+            symbol="BTC",
+            timeframe="1m",
+            on_quality=lambda report: quality_reports.append(report),
+            quality_monitor=monitor,
+        )
+
+        await pipeline.process_tick(Tick(symbol="BTC", timestamp_ms=12_000, price=100.0, volume=1.0))
+
+        self.assertEqual(len(quality_reports), 1)
+        self.assertIn("timestamp_drift", quality_reports[0].issues)
 
 
 if __name__ == "__main__":

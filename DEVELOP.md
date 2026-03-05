@@ -238,6 +238,17 @@ Commit: `ac023fe`
 Результат: Подэтап `E1.4` завершен, резервный live-источник данных MEXC подключен к runtime-контуру.  
 Commit: `5d4b554`
 
+Дата/время (UTC): 2026-03-05  
+Подэтап: `E1.5`  
+Что сделано: Добавлен runtime-контур валидации качества данных для gap/stale/timestamp drift и интегрирован в realtime pipeline.  
+Какие файлы изменены: `core/data/quality.py`, `core/data/pipeline.py`, `core/data/__init__.py`, `tests/test_data_quality.py`, `tests/test_realtime_candle_pipeline.py`, `DEVELOP.md`  
+Реализованная логика: Добавлен `RuntimeDataQualityMonitor` с проверками gap/overlap по свечам, stale-потока по таймауту и timestamp drift для tick/candle; в `RealtimeCandlePipeline` добавлены `on_quality`, `quality_monitor` и метод `health_report` для runtime-репортов качества.  
+Команды: `python -m unittest tests.test_data_quality tests.test_realtime_candle_pipeline -v`, `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot tests.test_candle_builder tests.test_data_quality tests.test_data_fallback tests.test_ws_runtime tests.test_realtime_candle_pipeline tests.test_mexc_ws_adapter -v`, `git add DEVELOP.md core/data/quality.py core/data/pipeline.py core/data/__init__.py tests/test_data_quality.py tests/test_realtime_candle_pipeline.py`, `git commit -m <сообщение>`  
+Тесты: Прогнан 31 unit-тест, все успешны; добавлены сценарии runtime-детекции gap/stale/drift и эмита quality-report в pipeline.  
+Как проверено: Подтверждена корректность новых quality-checks и отсутствие регрессий в Data Layer и WS/runtime контуре.  
+Результат: Подэтап `E1.5` завершен, runtime-контроль качества данных готов к использованию в алертинге и risk-контуре.  
+Commit: будет добавлен после фиксации изменений в git.
+
 ---
 
 ## 5) TODO после MVP (согласовано)
