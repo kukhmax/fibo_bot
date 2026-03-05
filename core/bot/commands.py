@@ -7,12 +7,22 @@ from core.bot.profile import TelegramUserProfileStore
 from core.config.models import EnvironmentConfig
 
 
+COMMAND_KEYBOARD: tuple[tuple[str, ...], ...] = (
+    ("/start", "/status", "/help"),
+    ("/mode signal_only", "/mode paper", "/mode live"),
+    ("/set_tf 1m", "/set_tf 5m", "/set_tf 15m"),
+    ("/set_tf 1h", "/set_tf 4h"),
+    ("/set_risk 0.5", "/set_risk 1.0", "/set_risk 1.5"),
+)
+
+
 def build_default_router(
     config: EnvironmentConfig,
     profile_store: TelegramUserProfileStore | None = None,
 ) -> CommandRouter:
     router = CommandRouter()
     store = profile_store or TelegramUserProfileStore()
+    router.set_reply_keyboard(COMMAND_KEYBOARD)
 
     def start_handler(ctx: CommandContext, args: str) -> str:
         profile = store.get_or_create(ctx.user_id, config)
@@ -36,7 +46,7 @@ def build_default_router(
 
     def help_handler(_: CommandContext, __: str) -> str:
         commands = ", ".join(router.available_commands())
-        return f"Доступные команды: {commands}"
+        return f"Доступные команды: {commands}\nКнопки снизу дублируют команды и настройки."
 
     def mode_handler(ctx: CommandContext, args: str) -> str:
         profile = store.get_or_create(ctx.user_id, config)

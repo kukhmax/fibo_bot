@@ -15,15 +15,20 @@ from core.data import StateCache
 class _FakeTransport:
     def __init__(self, updates: list[IncomingMessage]) -> None:
         self._updates = list(updates)
-        self.sent_messages: list[tuple[int, str]] = []
+        self.sent_messages: list[tuple[int, str, tuple[tuple[str, ...], ...] | None]] = []
 
     def fetch_updates(self, offset: int | None = None, limit: int = 50) -> list[IncomingMessage]:
         if offset is None:
             return self._updates[:limit]
         return [item for item in self._updates if item.update_id >= offset][:limit]
 
-    def send_text(self, chat_id: int, text: str) -> None:
-        self.sent_messages.append((chat_id, text))
+    def send_text(
+        self,
+        chat_id: int,
+        text: str,
+        reply_keyboard: tuple[tuple[str, ...], ...] | None = None,
+    ) -> None:
+        self.sent_messages.append((chat_id, text, reply_keyboard))
 
 
 class TestBotRouter(unittest.IsolatedAsyncioTestCase):
@@ -57,6 +62,8 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         self.assertIn("fib_bot готов", start.response_text)
         self.assertIn("online", status.response_text)
         self.assertIn("mode=", status.response_text)
+        self.assertIsNotNone(start.reply_keyboard)
+        self.assertIn("/status", start.reply_keyboard[0])
 
     async def test_start_updates_master_profile(self) -> None:
         config = load_environment_config("dev")
@@ -130,6 +137,8 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(transport.sent_messages), 2)
         self.assertIn("/start", transport.sent_messages[0][1])
         self.assertIn("Неизвестная команда", transport.sent_messages[1][1])
+        self.assertIsNotNone(transport.sent_messages[0][2])
+        self.assertIn("/mode paper", transport.sent_messages[0][2][1])
 
 
 if __name__ == "__main__":

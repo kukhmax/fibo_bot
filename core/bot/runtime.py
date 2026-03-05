@@ -17,7 +17,12 @@ class TelegramTransportProtocol(Protocol):
     def fetch_updates(self, offset: int | None = None, limit: int = 50) -> list[IncomingMessage]:
         ...
 
-    def send_text(self, chat_id: int, text: str) -> None:
+    def send_text(
+        self,
+        chat_id: int,
+        text: str,
+        reply_keyboard: tuple[tuple[str, ...], ...] | None = None,
+    ) -> None:
         ...
 
 
@@ -39,5 +44,9 @@ class TelegramBotRuntime:
                 text=update.text,
             )
             result = await self.router.dispatch(context)
-            self.transport.send_text(update.chat_id, result.response_text)
+            self.transport.send_text(
+                update.chat_id,
+                result.response_text,
+                reply_keyboard=result.reply_keyboard,
+            )
         return len(updates)

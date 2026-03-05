@@ -293,6 +293,17 @@ Commit: `6bf74f3`
 Результат: Подэтап `E2.3` завершен, управление профилем через `/mode`, `/set_tf`, `/set_risk`, `/status` готово к использованию.  
 Commit: `ecbd816`
 
+Дата/время (UTC): 2026-03-05  
+Подэтап: `E2.3 UX`  
+Что сделано: Добавлена нижняя reply-клавиатура Telegram с кнопками, дублирующими команды и настройки, чтобы не вводить команды вручную.  
+Какие файлы изменены: `core/bot/router.py`, `core/bot/runtime.py`, `core/bot/commands.py`, `tests/test_bot_router.py`, `DEVELOP.md`  
+Реализованная логика: `RouteResult` расширен полем `reply_keyboard`, в `CommandRouter` добавлена поддержка общей клавиатуры и авто-прокидка markup во все ответы; в runtime `send_text` принимает `reply_keyboard`; в `commands.py` настроена клавиатура с кнопками `/start`, `/status`, `/help`, пресетами `/mode`, `/set_tf`, `/set_risk`.  
+Команды: `python -m unittest tests.test_bot_router -v`, `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot tests.test_candle_builder tests.test_data_quality tests.test_data_fallback tests.test_ws_runtime tests.test_realtime_candle_pipeline tests.test_mexc_ws_adapter tests.test_persistence tests.test_bot_router tests.test_bot_profile_store -v`, `git add DEVELOP.md core/bot/router.py core/bot/runtime.py core/bot/commands.py tests/test_bot_router.py`, `git commit -m <сообщение>`  
+Тесты: Прогнано 47 unit-тестов, все успешны; добавлены проверки наличия reply-клавиатуры в ответах и передачи клавиатуры через runtime transport.  
+Как проверено: Подтверждена корректность UX-кнопок и отсутствие регрессий в bot/data/runtime контуре.  
+Результат: Нижние кнопки готовы и дублируют команды/настройки в ответах бота.  
+Commit: будет добавлен после фиксации изменений в git.
+
 ---
 
 ## 5) TODO после MVP (согласовано)
