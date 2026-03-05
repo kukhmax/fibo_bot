@@ -7,6 +7,7 @@ from core.bot.router import RouteResult
 from core.bot.runtime import IncomingMessage
 from core.bot.runtime import TelegramBotRuntime
 from core.bot.runtime import TelegramTransportProtocol
+from core.bot.telegram_transport import TelegramApiTransport
 
 
 __all__ = [
@@ -18,5 +19,6 @@ __all__ = [
     "IncomingMessage",
     "TelegramTransportProtocol",
     "TelegramBotRuntime",
+    "TelegramApiTransport",
     "build_default_router",
 ]

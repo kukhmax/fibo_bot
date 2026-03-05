@@ -304,6 +304,17 @@ Commit: `ecbd816`
 Результат: Нижние кнопки готовы и дублируют команды/настройки в ответах бота.  
 Commit: `a720140`
 
+Дата/время (UTC): 2026-03-05  
+Подэтап: `E2.3 Runtime API`  
+Что сделано: Подключен реальный Telegram Bot API transport и запущен polling runtime в entrypoint бота.  
+Какие файлы изменены: `core/bot/telegram_transport.py`, `core/bot/main.py`, `core/bot/__init__.py`, `tests/test_telegram_transport.py`, `DEVELOP.md`  
+Реализованная логика: Добавлен `TelegramApiTransport` на `urllib` для `getUpdates/sendMessage` с поддержкой `reply_markup` для нижней клавиатуры; `main.run` теперь создает transport и `TelegramBotRuntime`, запускает polling-цикл через `asyncio`, а в режиме `--once` выполняет один проход обработки.  
+Команды: `python -m unittest tests.test_telegram_transport tests.test_bot_router -v`, `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot tests.test_candle_builder tests.test_data_quality tests.test_data_fallback tests.test_ws_runtime tests.test_realtime_candle_pipeline tests.test_mexc_ws_adapter tests.test_persistence tests.test_bot_router tests.test_bot_profile_store tests.test_telegram_transport -v`, `git add DEVELOP.md core/bot/telegram_transport.py core/bot/main.py core/bot/__init__.py tests/test_telegram_transport.py`, `git commit -m <сообщение>`  
+Тесты: Прогнано 49 unit-тестов, все успешны; добавлены проверки парсинга `getUpdates` и формирования payload `sendMessage` с reply-клавиатурой.  
+Как проверено: Подтверждена корректность Bot API интеграции и отсутствие регрессий в существующих модулях проекта.  
+Результат: Бот готов работать с реальным Telegram API и показывать нижние кнопки в чате без ручного ввода команд.  
+Commit: будет добавлен после фиксации изменений в git.
+
 ---
 
 ## 5) TODO после MVP (согласовано)
