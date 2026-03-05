@@ -194,6 +194,17 @@ Commit: `c2b6722`
 Результат: Этап `E1` закрывает базовый каркас data ingestion и подготавливает почву для подключения реальных WS-каналов и funding/OI в следующем подэтапе.  
 Commit: `028d465`
 
+Дата/время (UTC): 2026-03-05  
+Подэтап: `E1.1`  
+Что сделано: Реализован рантайм WS-клиента Hyperliquid с подписками на trade/kline и автоматическим восстановлением соединения.  
+Какие файлы изменены: `core/data/websocket_client.py`, `core/data/__init__.py`, `tests/test_ws_runtime.py`, `DEVELOP.md`  
+Реализованная логика: Добавлены `HyperliquidWsClient` и `ReconnectPolicy` с reconnect/backoff/jitter, heartbeat timeout watchdog через `asyncio.wait_for`, отправка подписок `trades` и `candle`, а также callback-обработчик входящих тиков.  
+Команды: `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot tests.test_candle_builder tests.test_data_quality tests.test_data_fallback tests.test_ws_runtime -v`, `git add DEVELOP.md core/data/websocket_client.py core/data/__init__.py tests/test_ws_runtime.py`, `git commit -m <сообщение>`  
+Тесты: Прогнаны 20 unit-тестов, все успешны; дополнительно покрыты сценарии reconnect после дисконнекта, heartbeat timeout и корректная отправка WS-подписок.  
+Как проверено: Полный прогон тестов подтвердил отсутствие регрессий и корректную работу WS-рантайма с policy-based восстановлением соединения.  
+Результат: Подэтап `E1.1` завершен, контур live WS ingestion готов для подключения REST восстановления пропусков на уровне рантайма (`E1.2`).  
+Commit: будет добавлен после фиксации изменений в git.
+
 ---
 
 ## 5) TODO после MVP (согласовано)

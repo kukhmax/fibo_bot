@@ -1,8 +1,44 @@
+import asyncio
+from dataclasses import dataclass
+import inspect
 import json
+import random
 import time
+from typing import Awaitable
+from typing import Callable
+from typing import Protocol
 
 from core.data.models import Tick
 from core.data.rest_client import MultiExchangeHistoricalData
+
+
+class WsConnectionProtocol(Protocol):
+    async def send(self, payload: str) -> None:
+        ...
+
+    async def recv(self) -> str:
+        ...
+
+    async def close(self) -> None:
+        ...
+
+
+WsConnector = Callable[[str], Awaitable[WsConnectionProtocol]]
+
+
+@dataclass(frozen=True)
+class ReconnectPolicy:
+    initial_delay_sec: float = 1.0
+    max_delay_sec: float = 20.0
+    factor: float = 2.0
+    jitter_sec: float = 0.3
+    max_attempts: int | None = None
+
+    def delay_for_attempt(self, attempt: int) -> float:
+        base = min(self.initial_delay_sec * (self.factor ** max(0, attempt - 1)), self.max_delay_sec)
+        if self.jitter_sec <= 0:
+            return base
+        return max(0.0, base + random.uniform(0, self.jitter_sec))
 
 
 class HyperliquidWebSocketParser:
@@ -22,6 +58,102 @@ class HyperliquidWebSocketParser:
             price=float(price),
             volume=float(volume or 0.0),
         )
+
+
+class HyperliquidWsClient:
+    def __init__(
+        self,
+        symbol: str,
+        timeframe: str = "1m",
+        parser: HyperliquidWebSocketParser | None = None,
+        on_tick: Callable[[Tick], None | Awaitable[None]] | None = None,
+        ws_url: str = "wss://api.hyperliquid.xyz/ws",
+        connector: WsConnector | None = None,
+        reconnect_policy: ReconnectPolicy | None = None,
+        heartbeat_timeout_sec: float = 20.0,
+        sleeper: Callable[[float], Awaitable[None]] = asyncio.sleep,
+    ) -> None:
+        self.symbol = symbol
+        self.timeframe = timeframe
+        self.parser = parser or HyperliquidWebSocketParser()
+        self.on_tick = on_tick
+        self.ws_url = ws_url
+        self.connector = connector or default_ws_connector
+        self.reconnect_policy = reconnect_policy or ReconnectPolicy()
+        self.heartbeat_timeout_sec = heartbeat_timeout_sec
+        self.sleeper = sleeper
+        self._stop_requested = False
+
+    def request_stop(self) -> None:
+        self._stop_requested = True
+
+    async def run(self, max_messages: int | None = None) -> int:
+        total_processed = 0
+        reconnect_attempt = 0
+        while not self._stop_requested:
+            try:
+                connection = await self.connector(self.ws_url)
+                reconnect_attempt = 0
+                remaining = None if max_messages is None else max(0, max_messages - total_processed)
+                processed = await self._consume_connection(connection, remaining_limit=remaining)
+                total_processed += processed
+                if max_messages is not None and total_processed >= max_messages:
+                    return total_processed
+                if not self._stop_requested:
+                    raise ConnectionError("websocket stream closed")
+            except Exception:
+                if self._stop_requested:
+                    break
+                reconnect_attempt += 1
+                if (
+                    self.reconnect_policy.max_attempts is not None
+                    and reconnect_attempt > self.reconnect_policy.max_attempts
+                ):
+                    break
+                delay = self.reconnect_policy.delay_for_attempt(reconnect_attempt)
+                await self.sleeper(delay)
+        return total_processed
+
+    async def _consume_connection(
+        self, connection: WsConnectionProtocol, remaining_limit: int | None = None
+    ) -> int:
+        processed = 0
+        try:
+            await self._send_subscriptions(connection)
+            while not self._stop_requested:
+                if remaining_limit is not None and processed >= remaining_limit:
+                    return processed
+                raw_message = await asyncio.wait_for(connection.recv(), timeout=self.heartbeat_timeout_sec)
+                tick = self.parser.parse_tick(raw_message, symbol=self.symbol)
+                if tick is None:
+                    continue
+                await self._emit_tick(tick)
+                processed += 1
+        finally:
+            try:
+                await connection.close()
+            except Exception:
+                pass
+        return processed
+
+    async def _send_subscriptions(self, connection: WsConnectionProtocol) -> None:
+        trade_subscription = {
+            "method": "subscribe",
+            "subscription": {"type": "trades", "coin": self.symbol},
+        }
+        candle_subscription = {
+            "method": "subscribe",
+            "subscription": {"type": "candle", "coin": self.symbol, "interval": self.timeframe},
+        }
+        await connection.send(json.dumps(trade_subscription))
+        await connection.send(json.dumps(candle_subscription))
+
+    async def _emit_tick(self, tick: Tick) -> None:
+        if self.on_tick is None:
+            return
+        result = self.on_tick(tick)
+        if inspect.isawaitable(result):
+            await result
 
 
 class LiveDataOrchestrator:
@@ -60,3 +192,11 @@ def _pick(payload: dict, *keys: str):
         if key in payload:
             return payload[key]
     return None
+
+
+async def default_ws_connector(url: str) -> WsConnectionProtocol:
+    try:
+        import websockets
+    except ImportError as exc:
+        raise RuntimeError("websockets library is required for live ws runtime") from exc
+    return await websockets.connect(url, ping_interval=None)
