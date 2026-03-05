@@ -14,8 +14,16 @@ services:
       REDIS_URL: redis://redis:6379/0
       DATABASE_URL: postgresql://fib_bot:fib_bot@postgres:5432/fib_bot
     depends_on:
-      - redis
-      - postgres
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-m", "core.bot.main", "--health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     networks:
       - fib_bot_net
 
@@ -24,6 +32,11 @@ services:
     container_name: fib_bot_redis
     restart: unless-stopped
     command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
     volumes:
       - redis_data:/data
     networks:
@@ -37,6 +50,11 @@ services:
       POSTGRES_DB: fib_bot
       POSTGRES_USER: fib_bot
       POSTGRES_PASSWORD: fib_bot
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fib_bot -d fib_bot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:

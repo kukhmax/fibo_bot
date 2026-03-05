@@ -172,6 +172,17 @@ Commit: см. `git log --oneline -n 3`
 Результат: Подэтап `E0.4` завершен, инфраструктура app/redis/postgres готова к следующему шагу health-check и smoke-проверки.  
 Commit: `a786b48`
 
+Дата/время (UTC): 2026-03-05  
+Подэтап: `E0.5`  
+Что сделано: Реализованы health-check механизмы приложения и сервисов, а также выполнены smoke-проверки запуска и compose-конфигурации.  
+Какие файлы изменены: `core/bot/health.py`, `core/bot/main.py`, `infra/docker/docker-compose.yml`, `tests/test_health_snapshot.py`, `DEVELOP.md`  
+Реализованная логика: Добавлен health snapshot приложения с проверкой доступности Redis/Postgres по TCP, интегрирован CLI-флаг `--health` с JSON-ответом и кодом выхода, подключены healthcheck-блоки для `app`, `redis`, `postgres` в docker-compose и зависимости по `service_healthy`.  
+Команды: `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot -v`, `python -m core.bot.main --once`, `docker compose -f infra/docker/docker-compose.yml config`, `git add DEVELOP.md core/bot/health.py core/bot/main.py infra/docker/docker-compose.yml tests/test_health_snapshot.py`, `git commit -m <сообщение>`  
+Тесты: Прогнаны 10 unit-тестов (конфиги, секреты, health snapshot), все успешны; дополнительно проверен локальный старт app stub и успешный рендер итогового compose-конфига с healthcheck секциями.  
+Как проверено: Результаты unit-тестов подтверждают корректность логики health snapshot; `docker compose ... config` подтверждает валидную структуру и зависимости healthcheck; запуск `--once` подтверждает отсутствие регрессий старта.  
+Результат: Подэтап `E0.5` завершен, проект готов к переходу к этапу Data Layer (`E1`).  
+Commit: будет добавлен после фиксации изменений в git.
+
 ---
 
 ## 5) TODO после MVP (согласовано)
