@@ -6,6 +6,9 @@ from core.data.candle_builder import CandleBuilder
 from core.data.models import Candle
 from core.data.models import Tick
 from core.data.websocket_client import HyperliquidWsClient
+from core.data.websocket_client import MexcWsClient
+from core.data.websocket_client import PrimaryBackupWsClient
+from core.data.websocket_client import WsRuntimeProtocol
 
 
 class RealtimeCandlePipeline:
@@ -15,7 +18,8 @@ class RealtimeCandlePipeline:
         timeframe: str = "5m",
         on_candle: Callable[[Candle], None | Awaitable[None]] | None = None,
         on_tick: Callable[[Tick], None | Awaitable[None]] | None = None,
-        ws_client: HyperliquidWsClient | None = None,
+        ws_client: WsRuntimeProtocol | None = None,
+        backup_ws_client: WsRuntimeProtocol | None = None,
     ) -> None:
         self.symbol = symbol
         self.timeframe = timeframe
@@ -23,12 +27,22 @@ class RealtimeCandlePipeline:
         self.on_tick = on_tick
         self._builder = CandleBuilder(symbol=symbol, timeframe=timeframe)
         self._last_emitted_open_time_ms: int | None = None
-        self._ws_client = ws_client or HyperliquidWsClient(
-            symbol=symbol,
-            timeframe=timeframe,
-            on_tick=self.process_tick,
-            on_backfill=self.process_backfill,
-        )
+        if ws_client is not None:
+            self._ws_client = ws_client
+        else:
+            primary = HyperliquidWsClient(
+                symbol=symbol,
+                timeframe=timeframe,
+                on_tick=self.process_tick,
+                on_backfill=self.process_backfill,
+            )
+            backup = backup_ws_client or MexcWsClient(
+                symbol=symbol,
+                timeframe=timeframe,
+                on_tick=self.process_tick,
+                on_backfill=self.process_backfill,
+            )
+            self._ws_client = PrimaryBackupWsClient(primary=primary, backup=backup)
 
     async def run(self, max_messages: int | None = None) -> int:
         return await self._ws_client.run(max_messages=max_messages)

@@ -10,6 +10,9 @@ from core.data.rest_client import MultiExchangeHistoricalData
 from core.data.websocket_client import HyperliquidWsClient
 from core.data.websocket_client import HyperliquidWebSocketParser
 from core.data.websocket_client import LiveDataOrchestrator
+from core.data.websocket_client import MexcWebSocketParser
+from core.data.websocket_client import MexcWsClient
+from core.data.websocket_client import PrimaryBackupWsClient
 from core.data.websocket_client import ReconnectPolicy
 
 
@@ -26,5 +29,8 @@ __all__ = [
     "ReconnectPolicy",
     "HyperliquidWsClient",
     "HyperliquidWebSocketParser",
+    "MexcWebSocketParser",
+    "MexcWsClient",
+    "PrimaryBackupWsClient",
     "LiveDataOrchestrator",
 ]

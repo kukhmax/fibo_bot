@@ -227,6 +227,17 @@ Commit: `dcf7e6d`
 Результат: Подэтап `E1.3` завершен, базовый pipeline построения свечей для live-потока готов к подключению адаптера резервной биржи (`E1.4`).  
 Commit: `ac023fe`
 
+Дата/время (UTC): 2026-03-05  
+Подэтап: `E1.4`  
+Что сделано: Реализован live WS-адаптер MEXC и переключение на резервный источник при деградации primary-runtime.  
+Какие файлы изменены: `core/data/websocket_client.py`, `core/data/pipeline.py`, `core/data/__init__.py`, `tests/test_mexc_ws_adapter.py`, `DEVELOP.md`  
+Реализованная логика: Добавлены `MexcWebSocketParser` и `MexcWsClient` с подписками `sub.deal/sub.kline`, а также `PrimaryBackupWsClient` для последовательного failover primary→backup; `RealtimeCandlePipeline` обновлен для работы через runtime-протокол и подключения MEXC как backup по умолчанию.  
+Команды: `python -m unittest tests.test_mexc_ws_adapter tests.test_ws_runtime tests.test_realtime_candle_pipeline -v`, `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot tests.test_candle_builder tests.test_data_quality tests.test_data_fallback tests.test_ws_runtime tests.test_realtime_candle_pipeline tests.test_mexc_ws_adapter -v`, `git add DEVELOP.md core/data/websocket_client.py core/data/pipeline.py core/data/__init__.py tests/test_mexc_ws_adapter.py`, `git commit -m <сообщение>`  
+Тесты: Прогнаны 28 unit-тестов, все успешны; добавлены проверки MEXC parser/client и сценария переключения на backup runtime.  
+Как проверено: Подтверждена корректность работы адаптера MEXC и отсутствие регрессий в существующем data/WS pipeline.  
+Результат: Подэтап `E1.4` завершен, резервный live-источник данных MEXC подключен к runtime-контуру.  
+Commit: будет добавлен после фиксации изменений в git.
+
 ---
 
 ## 5) TODO после MVP (согласовано)

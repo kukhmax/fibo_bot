@@ -28,6 +28,14 @@ class WsConnectionProtocol(Protocol):
 WsConnector = Callable[[str], Awaitable[WsConnectionProtocol]]
 
 
+class WsRuntimeProtocol(Protocol):
+    async def run(self, max_messages: int | None = None) -> int:
+        ...
+
+    def request_stop(self) -> None:
+        ...
+
+
 @dataclass(frozen=True)
 class ReconnectPolicy:
     initial_delay_sec: float = 1.0
@@ -52,6 +60,29 @@ class HyperliquidWebSocketParser:
         price = _pick(data, "p", "price")
         volume = _pick(data, "v", "size", "volume")
         timestamp = _pick(data, "t", "time", "timestamp")
+        if price is None or timestamp is None:
+            return None
+        return Tick(
+            symbol=symbol,
+            timestamp_ms=int(timestamp),
+            price=float(price),
+            volume=float(volume or 0.0),
+        )
+
+
+class MexcWebSocketParser:
+    def parse_tick(self, payload: str, symbol: str) -> Tick | None:
+        parsed = json.loads(payload)
+        if not isinstance(parsed, dict):
+            return None
+        data = parsed.get("data")
+        if isinstance(data, list) and data:
+            data = data[0]
+        if not isinstance(data, dict):
+            data = parsed
+        price = _pick(data, "p", "price")
+        volume = _pick(data, "v", "vol", "size", "quantity")
+        timestamp = _pick(data, "t", "time", "ts")
         if price is None or timestamp is None:
             return None
         return Tick(
@@ -200,6 +231,73 @@ class HyperliquidWsClient:
             return 0
         candle_count = (gap_ms // self._timeframe_ms) + 2
         return int(max(1, min(500, candle_count)))
+
+
+class MexcWsClient(HyperliquidWsClient):
+    def __init__(
+        self,
+        symbol: str,
+        timeframe: str = "5m",
+        parser: MexcWebSocketParser | None = None,
+        on_tick: Callable[[Tick], None | Awaitable[None]] | None = None,
+        on_backfill: Callable[[list[Candle]], None | Awaitable[None]] | None = None,
+        rest_data: MultiExchangeHistoricalData | None = None,
+        ws_url: str = "wss://contract.mexc.com/edge",
+        connector: WsConnector | None = None,
+        reconnect_policy: ReconnectPolicy | None = None,
+        heartbeat_timeout_sec: float = 20.0,
+        sleeper: Callable[[float], Awaitable[None]] = asyncio.sleep,
+        clock_ms: Callable[[], int] | None = None,
+    ) -> None:
+        super().__init__(
+            symbol=symbol,
+            timeframe=timeframe,
+            parser=parser or MexcWebSocketParser(),
+            on_tick=on_tick,
+            on_backfill=on_backfill,
+            rest_data=rest_data,
+            ws_url=ws_url,
+            connector=connector,
+            reconnect_policy=reconnect_policy,
+            heartbeat_timeout_sec=heartbeat_timeout_sec,
+            sleeper=sleeper,
+            clock_ms=clock_ms,
+        )
+
+    async def _send_subscriptions(self, connection: WsConnectionProtocol) -> None:
+        trade_subscription = {
+            "method": "sub.deal",
+            "param": {"symbol": self.symbol},
+        }
+        candle_subscription = {
+            "method": "sub.kline",
+            "param": {"symbol": self.symbol, "interval": self.timeframe},
+        }
+        await connection.send(json.dumps(trade_subscription))
+        await connection.send(json.dumps(candle_subscription))
+
+
+class PrimaryBackupWsClient:
+    def __init__(self, primary: WsRuntimeProtocol, backup: WsRuntimeProtocol | None = None) -> None:
+        self.primary = primary
+        self.backup = backup
+
+    async def run(self, max_messages: int | None = None) -> int:
+        processed = await self.primary.run(max_messages=max_messages)
+        if self.backup is None:
+            return processed
+        if max_messages is None and processed > 0:
+            return processed
+        remaining = None if max_messages is None else max(0, max_messages - processed)
+        if remaining == 0:
+            return processed
+        backup_processed = await self.backup.run(max_messages=remaining)
+        return processed + backup_processed
+
+    def request_stop(self) -> None:
+        self.primary.request_stop()
+        if self.backup is not None:
+            self.backup.request_stop()
 
 
 class LiveDataOrchestrator:
