@@ -2,6 +2,7 @@ from core.data.candle_builder import CandleBuilder
 from core.data.models import Candle
 from core.data.models import DataQualityReport
 from core.data.models import Tick
+from core.data.pipeline import RealtimeCandlePipeline
 from core.data.quality import validate_candle_sequence
 from core.data.rest_client import HyperliquidRestClient
 from core.data.rest_client import MexcRestClient
@@ -16,6 +17,7 @@ __all__ = [
     "Tick",
     "Candle",
     "DataQualityReport",
+    "RealtimeCandlePipeline",
     "CandleBuilder",
     "validate_candle_sequence",
     "HyperliquidRestClient",

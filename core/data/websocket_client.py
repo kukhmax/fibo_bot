@@ -66,7 +66,7 @@ class HyperliquidWsClient:
     def __init__(
         self,
         symbol: str,
-        timeframe: str = "1m",
+        timeframe: str = "5m",
         parser: HyperliquidWebSocketParser | None = None,
         on_tick: Callable[[Tick], None | Awaitable[None]] | None = None,
         on_backfill: Callable[[list[Candle]], None | Awaitable[None]] | None = None,

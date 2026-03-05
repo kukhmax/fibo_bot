@@ -216,6 +216,17 @@ Commit: `1c8bf37`
 Результат: Подэтап `E1.2` завершен, WS-рантайм теперь восстанавливает пропуски через REST и готов к расширению источников данных.  
 Commit: `dcf7e6d`
 
+Дата/время (UTC): 2026-03-05  
+Подэтап: `E1.3`  
+Что сделано: Реализован realtime candle pipeline с дефолтным ТФ 5m и поддержкой настраиваемого timeframe.  
+Какие файлы изменены: `core/data/pipeline.py`, `core/data/websocket_client.py`, `core/data/__init__.py`, `tests/test_realtime_candle_pipeline.py`, `DEVELOP.md`  
+Реализованная логика: Добавлен `RealtimeCandlePipeline`, который принимает тик-поток и backfill-свечи, агрегирует их в `CandleBuilder`, эмитит закрытые свечи через callback и подавляет дубликаты по `open_time_ms`; в WS-клиенте зафиксирован дефолтный timeframe `5m`.  
+Команды: `python -m unittest tests.test_realtime_candle_pipeline tests.test_ws_runtime -v`, `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot tests.test_candle_builder tests.test_data_quality tests.test_data_fallback tests.test_ws_runtime tests.test_realtime_candle_pipeline -v`, `git add DEVELOP.md core/data/pipeline.py core/data/websocket_client.py core/data/__init__.py tests/test_realtime_candle_pipeline.py`, `git commit -m <сообщение>`  
+Тесты: Прогнаны 25 unit-тестов, все успешны; добавлены проверки дефолтного 5m, настраиваемого timeframe, эмита закрытых свечей и подавления backfill-дубликатов.  
+Как проверено: Подтверждена корректная работа realtime candle pipeline и отсутствие регрессий по ранее реализованным модулям Data Layer.  
+Результат: Подэтап `E1.3` завершен, базовый pipeline построения свечей для live-потока готов к подключению адаптера резервной биржи (`E1.4`).  
+Commit: будет добавлен после фиксации изменений в git.
+
 ---
 
 ## 5) TODO после MVP (согласовано)
