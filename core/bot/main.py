@@ -11,6 +11,7 @@ from core.bot.profile import TelegramUserProfileStore
 from core.bot.runtime import TelegramBotRuntime
 from core.bot.telegram_transport import TelegramApiTransport
 from core.data.pipeline import RealtimeCandlePipeline
+from core.ml.inference import MlSignalFilter
 from core.regime import RuleBasedRegimeClassifier
 from core.strategies import LiquiditySweepReversalStrategy
 from core.strategies import TrendPullbackStrategy
@@ -88,9 +89,17 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
     }
     classifier = RuleBasedRegimeClassifier()
     regime_window = deque(maxlen=30)
+    ml_window = deque(maxlen=60)
+    ml_filter = MlSignalFilter(
+        min_probability=float(os.getenv("ML_MIN_PROBA", "0.55")),
+        short_window=int(os.getenv("ML_SHORT_WINDOW", "5")),
+        long_window=int(os.getenv("ML_LONG_WINDOW", "20")),
+    )
+    ml_enabled = bool(config_env.ml.enabled)
 
     async def on_candle(candle):
         regime_window.append(candle)
+        ml_window.append(candle)
         regime = classifier.classify(list(regime_window))
         if strategy_mode in strategies:
             strategy_name = strategy_mode
@@ -99,6 +108,12 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
         decision = strategies[strategy_name].on_candle(candle)
         if decision.action != "entry":
             return
+        ml_probability = 1.0
+        if ml_enabled and ml_filter.is_active():
+            inference = ml_filter.evaluate(list(ml_window))
+            ml_probability = inference.probability
+            if not inference.allow:
+                return
         state = store._cache.load()
         for key, payload in state.items():
             if not isinstance(key, str) or not key.startswith("profile:"):
@@ -113,6 +128,7 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
             text = (
                 f"[{decision.strategy}] {decision.direction} {symbol} {timeframe}\n"
                 f"regime={regime.label} confidence={regime.confidence}\n"
+                f"ml_prob={ml_probability}\n"
                 f"explain={decision.explain}"
             )
             transport.send_text(chat_id=user_id, text=text)
