@@ -472,6 +472,19 @@ Commit: `08006b9`
 
 ---
 
+Дата/время (UTC): 2026-03-05  
+Подэтап: `E4.3`  
+Что сделано: Реализован отдельный labeling-модуль и выделено формирование train/validation датасетов в ML-слое.  
+Какие файлы изменены: `core/ml/labeling.py`, `core/ml/train_validation.py`, `core/features/dataset_builder.py`, `core/ml/__init__.py`, `tests/test_ml_labeling.py`, `DEVELOP.md`  
+Реализованная логика: `BinaryOutcomeLabeler` рассчитывает future-return и бинарный label по горизонту/порогу; `split_train_validation` выполняет стабильное разбиение train/validation. Feature builder переиспользует эти компоненты вместо встроенной логики labeling/split.  
+Команды: `python -m unittest tests.test_ml_labeling tests.test_feature_dataset_builder tests.test_ml_dataset_builder tests.test_ml_history_pipeline -v`, полный регресс `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot tests.test_candle_builder tests.test_data_quality tests.test_data_fallback tests.test_ws_runtime tests.test_realtime_candle_pipeline tests.test_mexc_ws_adapter tests.test_persistence tests.test_bot_router tests.test_bot_profile_store tests.test_telegram_transport tests.test_reports_scheduler tests.test_strategy_selector tests.test_strategy_trend_pullback tests.test_strategy_volatility_breakout tests.test_strategy_liquidity_sweep tests.test_regime_classifier tests.test_ml_history_pipeline tests.test_feature_dataset_builder tests.test_ml_dataset_builder tests.test_ml_labeling -v`  
+Тесты: Прогнано 76 unit-тестов, все успешны; добавлены тесты labeling и train/validation split.  
+Как проверено: Подтверждена корректность таргет-меток, согласованное разбиение выборок и отсутствие регрессий в существующем контуре.  
+Результат: Подэтап `E4.3` завершен, labeling и dataset split вынесены в отдельные переиспользуемые компоненты.  
+Commit: будет добавлен после фиксации изменений в git.
+
+---
+
 ## 5) TODO после MVP (согласовано)
 
 - Добавить whitelist активов по ликвидности и спреду.
