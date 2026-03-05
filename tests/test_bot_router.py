@@ -11,6 +11,9 @@ from core.bot import TelegramUserProfileStore
 from core.bot import build_default_router
 from core.config import load_environment_config
 from core.data import StateCache
+from core.ml.artifacts import ModelArtifactStore
+from core.ml.model import BaselineProbabilityModel
+from core.ml.trainer import TrainingReport
 
 
 class _FakeTransport:
@@ -152,6 +155,36 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Неизвестная команда", transport.sent_messages[1][1])
         self.assertIsNotNone(transport.sent_messages[0][2])
         self.assertIsNone(transport.sent_messages[0][3])
+
+    async def test_ml_report_returns_not_found_without_artifact(self) -> None:
+        config = load_environment_config("dev")
+        store = ModelArtifactStore(Path(self._tmp.name) / "missing_model.json")
+        router = build_default_router(config, profile_store=self._store, ml_artifact_store=store)
+        result = await router.dispatch(CommandContext(chat_id=1, user_id=2, text="/ml_report"))
+        self.assertTrue(result.handled)
+        self.assertIn("ML отчет", result.response_text)
+        self.assertIn("artifact=not_found", result.response_text)
+
+    async def test_ml_report_returns_metrics_when_artifact_exists(self) -> None:
+        config = load_environment_config("dev")
+        store = ModelArtifactStore(Path(self._tmp.name) / "baseline_model.json")
+        model = BaselineProbabilityModel(
+            feature_names=("ret_1", "range_pct", "body_pct", "sma_ratio", "volume"),
+            weights=(0.1, 0.2, -0.1, 0.05, 0.01),
+            bias=0.0,
+        )
+        report = TrainingReport(
+            train_accuracy=0.75,
+            validation_accuracy=0.66,
+            train_size=120,
+            validation_size=30,
+        )
+        store.save(model, report)
+        router = build_default_router(config, profile_store=self._store, ml_artifact_store=store)
+        result = await router.dispatch(CommandContext(chat_id=1, user_id=2, text="/ml_report"))
+        self.assertTrue(result.handled)
+        self.assertIn("train_accuracy=0.7500", result.response_text)
+        self.assertIn("validation_accuracy=0.6600", result.response_text)
 
 
 if __name__ == "__main__":

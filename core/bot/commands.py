@@ -5,6 +5,8 @@ from core.bot.router import CommandRouter
 from core.bot.profile import TelegramUserProfile
 from core.bot.profile import TelegramUserProfileStore
 from core.config.models import EnvironmentConfig
+from core.ml.artifacts import ModelArtifactStore
+from core.bot.reporter import MlQualityReporter
 from core.bot.reporter import PositionReporter
 
 
@@ -14,15 +16,18 @@ COMMAND_KEYBOARD: tuple[tuple[str, ...], ...] = (
     ("/set_tf 1m", "/set_tf 5m", "/set_tf 15m"),
     ("/set_tf 1h", "/set_tf 4h"),
     ("/set_risk 0.5", "/set_risk 1.0", "/set_risk 1.5"),
+    ("/positions", "/ml_report"),
 )
 
 
 def build_default_router(
     config: EnvironmentConfig,
     profile_store: TelegramUserProfileStore | None = None,
+    ml_artifact_store: ModelArtifactStore | None = None,
 ) -> CommandRouter:
     router = CommandRouter()
     store = profile_store or TelegramUserProfileStore()
+    ml_reporter = MlQualityReporter(artifact_store=ml_artifact_store)
     router.set_reply_keyboard(COMMAND_KEYBOARD)
 
     def start_handler(ctx: CommandContext, args: str) -> str:
@@ -119,6 +124,9 @@ def build_default_router(
         inline = ((( "Обновить", "/positions"),),)
         return {"text": text, "inline_keyboard": inline}
 
+    def ml_report_handler(_: CommandContext, __: str) -> str:
+        return ml_reporter.build_report()
+
     router.add_route("/start", start_handler)
     router.add_route("/help", help_handler)
     router.add_route("/mode", mode_handler)
@@ -126,6 +134,7 @@ def build_default_router(
     router.add_route("/set_risk", set_risk_handler)
     router.add_route("/status", status_handler)
     router.add_route("/positions", positions_handler)
+    router.add_route("/ml_report", ml_report_handler)
     return router
 
 

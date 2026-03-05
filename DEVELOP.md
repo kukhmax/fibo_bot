@@ -511,6 +511,19 @@ Commit: `d9371b9`
 
 ---
 
+Дата/время (UTC): 2026-03-05  
+Подэтап: `E4.6`  
+Что сделано: Добавлен Telegram-отчет качества ML-модели через команду `/ml_report`.  
+Какие файлы изменены: `core/bot/reporter.py`, `core/bot/commands.py`, `tests/test_bot_router.py`, `DEVELOP.md`  
+Реализованная логика: Добавлен `MlQualityReporter`, который читает `runtime/ml/baseline_model.json` и формирует отчет с `train_accuracy`, `validation_accuracy`, размерами выборок и списком признаков. В роутер добавлена команда `/ml_report` и кнопка быстрого вызова. При отсутствии артефакта возвращается корректный fallback `artifact=not_found`.  
+Команды: `python -m unittest tests.test_bot_router tests.test_ml_inference tests.test_ml_training -v`, полный регресс `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot tests.test_candle_builder tests.test_data_quality tests.test_data_fallback tests.test_ws_runtime tests.test_realtime_candle_pipeline tests.test_mexc_ws_adapter tests.test_persistence tests.test_bot_router tests.test_bot_profile_store tests.test_telegram_transport tests.test_reports_scheduler tests.test_strategy_selector tests.test_strategy_trend_pullback tests.test_strategy_volatility_breakout tests.test_strategy_liquidity_sweep tests.test_regime_classifier tests.test_ml_history_pipeline tests.test_feature_dataset_builder tests.test_ml_dataset_builder tests.test_ml_labeling tests.test_ml_training tests.test_ml_inference -v`  
+Тесты: Прогнано 83 unit-теста, все успешны; добавлены тесты команды `/ml_report` для сценариев c/без артефакта.  
+Как проверено: Подтвержден корректный Telegram-формат ML-отчета и стабильная работа новых команд без регрессий.  
+Результат: Подэтап `E4.6` завершен, отчет о качестве ML-модели доступен в Telegram-формате.  
+Commit: будет добавлен после фиксации изменений в git.
+
+---
+
 ## 5) TODO после MVP (согласовано)
 
 - Добавить whitelist активов по ликвидности и спреду.
