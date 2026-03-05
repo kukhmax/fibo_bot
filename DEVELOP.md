@@ -271,6 +271,17 @@ Commit: `f445f3f`
 Результат: Подэтап `E2.1` завершен, базовая маршрутизация Telegram-команд готова для последующих подэтапов профиля и управляющих команд.  
 Commit: `4ecff93`
 
+Дата/время (UTC): 2026-03-05  
+Подэтап: `E2.2`  
+Что сделано: Реализован `/start` мастер-профиль с настройкой режима, биржи, таймфрейма, риска и интервала отчета по пользователю.  
+Какие файлы изменены: `core/bot/profile.py`, `core/bot/commands.py`, `core/bot/__init__.py`, `tests/test_bot_router.py`, `tests/test_bot_profile_store.py`, `DEVELOP.md`  
+Реализованная логика: Добавлены `TelegramUserProfile` и `TelegramUserProfileStore` с персистентным хранением в `StateCache`; `/start` теперь создает/обновляет пользовательский профиль через параметры `mode/exchange/timeframe/risk/report`, валидирует значения и возвращает текущее состояние профиля; `/status` отображает персональные настройки пользователя из сохраненного профиля.  
+Команды: `python -m unittest tests.test_bot_profile_store tests.test_bot_router -v`, `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot tests.test_candle_builder tests.test_data_quality tests.test_data_fallback tests.test_ws_runtime tests.test_realtime_candle_pipeline tests.test_mexc_ws_adapter tests.test_persistence tests.test_bot_router tests.test_bot_profile_store -v`, `git add DEVELOP.md core/bot/profile.py core/bot/commands.py core/bot/__init__.py tests/test_bot_router.py tests/test_bot_profile_store.py`, `git commit -m <сообщение>`  
+Тесты: Прогнано 43 unit-теста, все успешны; добавлены проверки дефолтного создания профиля, персистентности между инстансами store, обновления `/start` и валидации невалидных параметров.  
+Как проверено: Подтверждена корректность master-profile контура и отсутствие регрессий в существующих data/bot/runtime модулях.  
+Результат: Подэтап `E2.2` завершен, пользовательский профиль Telegram готов для дальнейших управляющих команд `/mode`, `/set_tf`, `/set_risk`, `/status`.  
+Commit: будет добавлен после фиксации изменений в git.
+
 ---
 
 ## 5) TODO после MVP (согласовано)

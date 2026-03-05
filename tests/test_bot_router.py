@@ -1,11 +1,15 @@
+from pathlib import Path
+import tempfile
 import unittest
 
 from core.bot import CommandContext
 from core.bot import CommandRouter
 from core.bot import IncomingMessage
 from core.bot import TelegramBotRuntime
+from core.bot import TelegramUserProfileStore
 from core.bot import build_default_router
 from core.config import load_environment_config
+from core.data import StateCache
 
 
 class _FakeTransport:
@@ -23,6 +27,13 @@ class _FakeTransport:
 
 
 class TestBotRouter(unittest.IsolatedAsyncioTestCase):
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self._store = TelegramUserProfileStore(cache=StateCache(Path(self._tmp.name) / "profiles.json"))
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
     async def test_command_router_dispatches_registered_command(self) -> None:
         router = CommandRouter()
         router.add_route("/ping", lambda _ctx, _args: "pong")
@@ -38,17 +49,43 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
 
     async def test_default_router_has_start_and_status(self) -> None:
         config = load_environment_config("dev")
-        router = build_default_router(config)
+        router = build_default_router(config, profile_store=self._store)
         start = await router.dispatch(CommandContext(chat_id=1, user_id=2, text="/start"))
         status = await router.dispatch(CommandContext(chat_id=1, user_id=2, text="/status"))
         self.assertTrue(start.handled)
         self.assertTrue(status.handled)
         self.assertIn("fib_bot готов", start.response_text)
         self.assertIn("online", status.response_text)
+        self.assertIn("mode=", status.response_text)
+
+    async def test_start_updates_master_profile(self) -> None:
+        config = load_environment_config("dev")
+        router = build_default_router(config, profile_store=self._store)
+        updated = await router.dispatch(
+            CommandContext(
+                chat_id=1,
+                user_id=42,
+                text="/start mode=paper exchange=mexc timeframe=15m risk=1.5 report=30",
+            )
+        )
+        status = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/status"))
+        self.assertTrue(updated.handled)
+        self.assertIn("mode=paper", updated.response_text)
+        self.assertIn("exchange=mexc", status.response_text)
+        self.assertIn("timeframe=15m", status.response_text)
+        self.assertIn("risk=1.5", status.response_text)
+        self.assertIn("report_interval_min=30", status.response_text)
+
+    async def test_start_rejects_invalid_profile_values(self) -> None:
+        config = load_environment_config("dev")
+        router = build_default_router(config, profile_store=self._store)
+        result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/start risk=9"))
+        self.assertTrue(result.handled)
+        self.assertIn("Ошибка обновления профиля", result.response_text)
 
     async def test_runtime_fetches_updates_and_sends_responses(self) -> None:
         config = load_environment_config("dev")
-        router = build_default_router(config)
+        router = build_default_router(config, profile_store=self._store)
         updates = [
             IncomingMessage(update_id=10, chat_id=11, user_id=12, text="/help"),
             IncomingMessage(update_id=11, chat_id=11, user_id=12, text="/unknown"),
