@@ -150,6 +150,17 @@ Commit: `6950869`
 Результат: Базовый конфиг-контур готов для подэтапа `E0.3` (шаблоны `.env` и правила секретов).  
 Commit: см. `git log --oneline -n 2`
 
+Дата/время (UTC): 2026-03-05  
+Подэтап: `E0.3`  
+Что сделано: Добавлены шаблон `.env.example`, модуль загрузки секретов и правила работы с секретами в документации.  
+Какие файлы изменены: `core/config/__init__.py`, `core/config/secrets.py`, `.env.example`, `docs/SECRETS.md`, `tests/test_secrets_loader.py`, `DEVELOP.md`  
+Реализованная логика: Реализован единый загрузчик секретов из переменных окружения и `.env` файла с приоритетом окружения, введена валидация обязательного Telegram-токена и торговых ключей Hyperliquid для режимов с требованием торговых кредов.  
+Команды: `python -m unittest tests.test_config_loader tests.test_secrets_loader -v`, `git add DEVELOP.md core/config/secrets.py core/config/__init__.py .env.example docs/SECRETS.md tests/test_secrets_loader.py`, `git commit -m <сообщение>`  
+Тесты: `python -m unittest tests.test_config_loader tests.test_secrets_loader -v` — 8 тестов, все успешны. Проверены загрузка из файла, приоритет переменных окружения и валидация обязательных секретов.  
+Как проверено: Проверен полный прогон unit-тестов конфигурации и секретов, а также консистентность правил в `docs/SECRETS.md` и шаблоне `.env.example`.  
+Результат: Подэтап `E0.3` завершен, контур секретов и шаблонов окружения готов к использованию в следующих этапах.  
+Commit: будет добавлен после фиксации изменений в git.
+
 ---
 
 ## 5) TODO после MVP (согласовано)
