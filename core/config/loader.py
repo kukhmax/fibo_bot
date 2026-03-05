@@ -6,10 +6,12 @@ from core.config.models import EnvironmentConfig
 from core.config.models import ExchangeConfig
 from core.config.models import MLConfig
 from core.config.models import RiskConfig
+from core.risk import RiskManager
 
 
 CONFIG_DIR = Path(__file__).resolve().parent / "profiles"
 ALLOWED_ENVIRONMENTS = {"dev", "test", "paper"}
+RISK_MANAGER = RiskManager()
 
 
 def load_environment_config(environment: str) -> EnvironmentConfig:
@@ -23,6 +25,10 @@ def load_environment_config(environment: str) -> EnvironmentConfig:
 
     with config_path.open("r", encoding="utf-8") as config_file:
         payload = json.load(config_file)
+    risk_payload = payload["risk"]
+    risk_check = RISK_MANAGER.validate_risk_per_trade_pct(float(risk_payload["risk_per_trade_pct"]))
+    if not risk_check.allowed:
+        raise ValueError(f"Invalid risk_per_trade_pct in {config_path.name}: {risk_check.reason}")
 
     return EnvironmentConfig(
         environment=payload["environment"],

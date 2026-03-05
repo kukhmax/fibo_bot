@@ -8,6 +8,7 @@ from core.config.models import EnvironmentConfig
 from core.ml.artifacts import ModelArtifactStore
 from core.bot.reporter import MlQualityReporter
 from core.bot.reporter import PositionReporter
+from core.risk import RiskManager
 
 
 COMMAND_KEYBOARD: tuple[tuple[str, ...], ...] = (
@@ -18,6 +19,7 @@ COMMAND_KEYBOARD: tuple[tuple[str, ...], ...] = (
     ("/set_risk 0.5", "/set_risk 1.0", "/set_risk 1.5"),
     ("/positions", "/ml_report"),
 )
+RISK_MANAGER = RiskManager()
 
 
 def build_default_router(
@@ -204,8 +206,9 @@ def _parse_risk(raw: str, errors: list[str]) -> float:
     except ValueError:
         errors.append("risk должен быть числом")
         return 0.0
-    if value < 0.1 or value > 2:
-        errors.append("risk должен быть в диапазоне 0.1..2.0")
+    check = RISK_MANAGER.validate_risk_per_trade_pct(value)
+    if not check.allowed:
+        errors.append(check.reason)
     return value
 
 

@@ -122,7 +122,7 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
     async def test_set_risk_command_rejects_invalid_value(self) -> None:
         config = load_environment_config("dev")
         router = build_default_router(config, profile_store=self._store)
-        result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/set_risk 9"))
+        result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/set_risk 2.01"))
         self.assertIn("Ошибка обновления профиля", result.response_text)
         self.assertIn("risk должен быть в диапазоне 0.1..2.0", result.response_text)
 

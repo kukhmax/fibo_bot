@@ -13,6 +13,7 @@ from core.bot.telegram_transport import TelegramApiTransport
 from core.data.pipeline import RealtimeCandlePipeline
 from core.ml.inference import MlSignalFilter
 from core.regime import RuleBasedRegimeClassifier
+from core.risk import RiskManager
 from core.strategies import LiquiditySweepReversalStrategy
 from core.strategies import TrendPullbackStrategy
 from core.strategies import VolatilityBreakoutStrategy
@@ -96,6 +97,7 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
         long_window=int(os.getenv("ML_LONG_WINDOW", "20")),
     )
     ml_enabled = bool(config_env.ml.enabled)
+    risk_manager = RiskManager()
 
     async def on_candle(candle):
         regime_window.append(candle)
@@ -125,10 +127,20 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
             mode = str(payload.get("mode", "signal_only")).lower()
             if mode not in {"signal_only", "paper"}:
                 continue
+            raw_risk = payload.get("risk_per_trade_pct", config_env.risk.risk_per_trade_pct)
+            try:
+                risk_value = float(raw_risk)
+            except Exception:
+                risk_value = config_env.risk.risk_per_trade_pct
+            risk_check = risk_manager.validate_risk_per_trade_pct(risk_value)
+            if not risk_check.allowed:
+                transport.send_text(chat_id=user_id, text=f"risk_blocked: {risk_check.reason}")
+                continue
             text = (
                 f"[{decision.strategy}] {decision.direction} {symbol} {timeframe}\n"
                 f"regime={regime.label} confidence={regime.confidence}\n"
                 f"ml_prob={ml_probability}\n"
+                f"risk_per_trade_pct={risk_check.risk_per_trade_pct}\n"
                 f"explain={decision.explain}"
             )
             transport.send_text(chat_id=user_id, text=text)

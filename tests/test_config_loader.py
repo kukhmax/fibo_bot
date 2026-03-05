@@ -9,6 +9,7 @@ class TestConfigLoader(unittest.TestCase):
         self.assertEqual(config.environment, "dev")
         self.assertEqual(config.exchange.primary, "hyperliquid")
         self.assertEqual(config.exchange.default_timeframe, "5m")
+        self.assertLessEqual(config.risk.risk_per_trade_pct, 2.0)
 
     def test_load_test_profile(self) -> None:
         config = load_environment_config("test")

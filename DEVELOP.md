@@ -524,6 +524,19 @@ Commit: `6825e78`
 
 ---
 
+Дата/время (UTC): 2026-03-05  
+Подэтап: `E5.1`  
+Что сделано: Реализовано системное ограничение риска на сделку `<=2%` через отдельный `RiskManager` и runtime-enforcement.  
+Какие файлы изменены: `core/risk/manager.py`, `core/risk/__init__.py`, `core/config/loader.py`, `core/bot/commands.py`, `core/bot/main.py`, `tests/test_risk_manager.py`, `tests/test_bot_router.py`, `tests/test_config_loader.py`, `DEVELOP.md`  
+Реализованная логика: Добавлен `RiskManager` с валидацией `risk_per_trade_pct` в диапазоне `0.1..2.0`, расчетом risk amount и position size. В `loader` добавлена валидация профиля на старте, в `/set_risk` используется единый risk-check, в `signal/paper` runtime добавлен runtime-check профиля перед отправкой сигнала (с блокировкой некорректного риска).  
+Команды: `python -m unittest tests.test_risk_manager tests.test_bot_router tests.test_config_loader -v`, полный регресс `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot tests.test_candle_builder tests.test_data_quality tests.test_data_fallback tests.test_ws_runtime tests.test_realtime_candle_pipeline tests.test_mexc_ws_adapter tests.test_persistence tests.test_bot_router tests.test_bot_profile_store tests.test_telegram_transport tests.test_reports_scheduler tests.test_strategy_selector tests.test_strategy_trend_pullback tests.test_strategy_volatility_breakout tests.test_strategy_liquidity_sweep tests.test_regime_classifier tests.test_ml_history_pipeline tests.test_feature_dataset_builder tests.test_ml_dataset_builder tests.test_ml_labeling tests.test_ml_training tests.test_ml_inference tests.test_risk_manager -v`  
+Тесты: Прогнано 87 unit-тестов, все успешны; добавлен отдельный тестовый набор для `RiskManager`.  
+Как проверено: Подтверждена единая risk-политика в конфиге, командах профиля и runtime-контуре сигналов без регрессий по проекту.  
+Результат: Подэтап `E5.1` завершен, ограничение риска на сделку `<=2%` enforced на уровне системы.  
+Commit: будет добавлен после фиксации изменений в git.
+
+---
+
 ## 5) TODO после MVP (согласовано)
 
 - Добавить whitelist активов по ликвидности и спреду.
