@@ -4,20 +4,24 @@ import os
 import sys
 from time import sleep
 
+from core.bot.commands import build_default_router
 from core.bot.health import health_snapshot_dict
 from core.config import load_environment_config
 from core.config import load_runtime_secrets
 
 
-def run(once: bool = False) -> None:
+def run(once: bool = False, print_commands: bool = False) -> None:
     app_env = os.getenv("APP_ENV", "dev")
     config = load_environment_config(app_env)
     secrets = load_runtime_secrets()
+    router = build_default_router(config)
 
     print(
         f"fib_bot app started env={config.environment} mode={config.bot.mode} "
         f"primary_exchange={config.exchange.primary} token_configured={bool(secrets.telegram_bot_token)}"
     )
+    if print_commands:
+        print(json.dumps({"commands": router.available_commands()}, ensure_ascii=False))
 
     if once:
         return
@@ -30,12 +34,13 @@ def main() -> None:
     parser = ArgumentParser()
     parser.add_argument("--once", action="store_true")
     parser.add_argument("--health", action="store_true")
+    parser.add_argument("--commands", action="store_true")
     args = parser.parse_args()
     if args.health:
         payload = health_snapshot_dict()
         print(json.dumps(payload, ensure_ascii=False))
         sys.exit(0 if payload["healthy"] else 1)
-    run(once=args.once)
+    run(once=args.once, print_commands=args.commands)
 
 
 if __name__ == "__main__":

@@ -260,6 +260,17 @@ Commit: `962055e`
 Результат: Подэтап `E1.6` завершен, кэш состояния и локальная история готовы для использования в backtest и восстановлении рантайма.  
 Commit: `f445f3f`
 
+Дата/время (UTC): 2026-03-05  
+Подэтап: `E2.1`  
+Что сделано: Поднят каркас Telegram Core с маршрутизацией команд и runtime-контуром обработки входящих апдейтов.  
+Какие файлы изменены: `core/bot/router.py`, `core/bot/runtime.py`, `core/bot/commands.py`, `core/bot/main.py`, `core/bot/__init__.py`, `tests/test_bot_router.py`, `DEVELOP.md`  
+Реализованная логика: Добавлены `CommandRouter` и `CommandContext` с async-dispatch по slash-командам, `TelegramBotRuntime` с протоколом transport для polling/send, а также дефолтные команды `/start`, `/help`, `/status`; в CLI добавлен флаг `--commands` для вывода зарегистрированных маршрутов.  
+Команды: `python -m unittest tests.test_bot_router tests.test_health_snapshot -v`, `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot tests.test_candle_builder tests.test_data_quality tests.test_data_fallback tests.test_ws_runtime tests.test_realtime_candle_pipeline tests.test_mexc_ws_adapter tests.test_persistence tests.test_bot_router -v`, `git add DEVELOP.md core/bot/router.py core/bot/runtime.py core/bot/commands.py core/bot/main.py core/bot/__init__.py tests/test_bot_router.py`, `git commit -m <сообщение>`  
+Тесты: Прогнано 39 unit-тестов, все успешны; добавлены проверки роутинга команд, unknown-сценария, дефолтных хендлеров и runtime-обработки апдейтов.  
+Как проверено: Подтверждена корректность Telegram-каркаса и отсутствие регрессий в существующих модулях проекта.  
+Результат: Подэтап `E2.1` завершен, базовая маршрутизация Telegram-команд готова для последующих подэтапов профиля и управляющих команд.  
+Commit: будет добавлен после фиксации изменений в git.
+
 ---
 
 ## 5) TODO после MVP (согласовано)
