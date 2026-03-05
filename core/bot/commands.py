@@ -5,6 +5,7 @@ from core.bot.router import CommandRouter
 from core.bot.profile import TelegramUserProfile
 from core.bot.profile import TelegramUserProfileStore
 from core.config.models import EnvironmentConfig
+from core.bot.reporter import PositionReporter
 
 
 COMMAND_KEYBOARD: tuple[tuple[str, ...], ...] = (
@@ -112,12 +113,19 @@ def build_default_router(
             f"report_interval_min={profile.position_report_minutes}"
         )
 
+    def positions_handler(ctx: CommandContext, __: str) -> dict:
+        profile = store.get_or_create(ctx.user_id, config)
+        text = PositionReporter().build_report(profile)
+        inline = ((( "Обновить", "/positions"),),)
+        return {"text": text, "inline_keyboard": inline}
+
     router.add_route("/start", start_handler)
     router.add_route("/help", help_handler)
     router.add_route("/mode", mode_handler)
     router.add_route("/set_tf", set_tf_handler)
     router.add_route("/set_risk", set_risk_handler)
     router.add_route("/status", status_handler)
+    router.add_route("/positions", positions_handler)
     return router
 
 

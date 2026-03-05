@@ -16,6 +16,7 @@ class RouteResult:
     handled: bool
     response_text: str
     reply_keyboard: tuple[tuple[str, ...], ...] | None = None
+    inline_keyboard: tuple[tuple[tuple[str, str], ...], ...] | None = None
 
 
 CommandHandler = Callable[[CommandContext, str], str | Awaitable[str]]
@@ -48,6 +49,12 @@ class CommandRouter:
         result = handler(context, args)
         if inspect.isawaitable(result):
             result = await result
+        if isinstance(result, dict) and "text" in result:
+            text = str(result.get("text", ""))
+            inline = result.get("inline_keyboard")
+            reply = result.get("reply_keyboard")
+            rk = self._reply_keyboard if reply is None else reply
+            return RouteResult(handled=True, response_text=text, reply_keyboard=rk, inline_keyboard=inline)
         return self._result(handled=True, response_text=result)
 
     def available_commands(self) -> tuple[str, ...]:
@@ -73,4 +80,5 @@ class CommandRouter:
             handled=handled,
             response_text=response_text,
             reply_keyboard=self._reply_keyboard,
+            inline_keyboard=None,
         )

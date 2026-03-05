@@ -16,7 +16,7 @@ from core.data import StateCache
 class _FakeTransport:
     def __init__(self, updates: list[IncomingMessage]) -> None:
         self._updates = list(updates)
-        self.sent_messages: list[tuple[int, str, tuple[tuple[str, ...], ...] | None]] = []
+        self.sent_messages: list[tuple[int, str, tuple[tuple[str, ...], ...] | None, tuple[tuple[tuple[str, str], ...], ...] | None]] = []
 
     def fetch_updates(self, offset: int | None = None, limit: int = 50) -> list[IncomingMessage]:
         if offset is None:
@@ -28,8 +28,9 @@ class _FakeTransport:
         chat_id: int,
         text: str,
         reply_keyboard: tuple[tuple[str, ...], ...] | None = None,
+        inline_keyboard: tuple[tuple[tuple[str, str], ...], ...] | None = None,
     ) -> None:
-        self.sent_messages.append((chat_id, text, reply_keyboard))
+        self.sent_messages.append((chat_id, text, reply_keyboard, inline_keyboard))
 
 
 class TestBotRouter(unittest.IsolatedAsyncioTestCase):
@@ -150,7 +151,7 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         self.assertIn("/start", transport.sent_messages[0][1])
         self.assertIn("Неизвестная команда", transport.sent_messages[1][1])
         self.assertIsNotNone(transport.sent_messages[0][2])
-        self.assertIn("/mode paper", transport.sent_messages[0][2][1])
+        self.assertIsNone(transport.sent_messages[0][3])
 
 
 if __name__ == "__main__":

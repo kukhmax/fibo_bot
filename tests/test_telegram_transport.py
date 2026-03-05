@@ -80,6 +80,46 @@ class TestTelegramTransport(unittest.TestCase):
         self.assertIn("reply_markup", payload)
         self.assertTrue(payload["reply_markup"]["resize_keyboard"])
 
+    def test_send_text_includes_inline_keyboard(self) -> None:
+        transport = TelegramApiTransport(bot_token="token123")
+        captured: dict[str, object] = {}
+
+        def fake_urlopen(req, timeout=30):
+            captured["url"] = req.full_url
+            captured["method"] = req.get_method()
+            captured["payload"] = json.loads((req.data or b"{}").decode("utf-8"))
+            return _FakeResponse({"ok": True, "result": {"message_id": 1}})
+
+        inline = ((( "Обновить", "/positions"),),)
+        with patch("core.bot.telegram_transport.request.urlopen", side_effect=fake_urlopen):
+            transport.send_text(chat_id=8, text="rep", inline_keyboard=inline)
+        self.assertIn("inline_keyboard", captured["payload"]["reply_markup"])
+
+    def test_fetch_updates_parses_callback_query(self) -> None:
+        transport = TelegramApiTransport(bot_token="token123")
+
+        def fake_urlopen(req, timeout=30):
+            return _FakeResponse(
+                {
+                    "ok": True,
+                    "result": [
+                        {
+                            "update_id": 99,
+                            "callback_query": {
+                                "from": {"id": 2002},
+                                "data": "/positions",
+                                "message": {"chat": {"id": 1001}},
+                            },
+                        }
+                    ],
+                }
+            )
+
+        with patch("core.bot.telegram_transport.request.urlopen", side_effect=fake_urlopen):
+            updates = transport.fetch_updates()
+        self.assertEqual(len(updates), 1)
+        self.assertEqual(updates[0].text, "/positions")
+
 
 if __name__ == "__main__":
     unittest.main()

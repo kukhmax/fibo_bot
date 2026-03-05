@@ -341,6 +341,17 @@ Commit: `4a3636c`
 Результат: Подэтап `E2.5` завершен, отчеты рассылаются автоматически по заданному интервалу.  
 Commit: `94e4f76`
 
+Дата/время (UTC): 2026-03-05  
+Подэтап: `E2.6`  
+Что сделано: Добавлена команда `/positions` и базовые action-кнопки inline для обновления отчета. Поддержаны `inline_keyboard` и обработка `callback_query` в транспортном слое.  
+Какие файлы изменены: `core/bot/commands.py`, `core/bot/router.py`, `core/bot/runtime.py`, `core/bot/telegram_transport.py`, `tests/test_telegram_transport.py`, `DEVELOP.md`  
+Реализованная логика: Хендлер `/positions` возвращает текст отчета и inline-кнопку «Обновить» с `callback_data=/positions`; router научился принимать словарь `{text, inline_keyboard}`, runtime и transport передают inline-клавиатуры и парсят `callback_query` в команды.  
+Команды: `python -m unittest tests.test_telegram_transport tests.test_bot_router -v`, полный регресс `python -m unittest ... -v`; `git add DEVELOP.md core/bot/commands.py core/bot/router.py core/bot/runtime.py core/bot/telegram_transport.py tests/test_telegram_transport.py`, `git commit -m <сообщение>`  
+Тесты: Прогнано 53 unit-теста, все успешны; добавлены проверки inline-клавиатуры и парсинга `callback_query`.  
+Как проверено: Нажатие inline-кнопки исполняет `/positions` через `callback_query`, клавиатуры доставляются в `sendMessage`.  
+Результат: Подэтап `E2.6` завершен, команда `/positions` и базовые action-кнопки доступны пользователю.  
+Commit: будет добавлен после фиксации изменений в git.
+
 ---
 
 ## 5) TODO после MVP (согласовано)

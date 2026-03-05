@@ -26,6 +26,7 @@ class TelegramTransportProtocol(Protocol):
         chat_id: int,
         text: str,
         reply_keyboard: tuple[tuple[str, ...], ...] | None = None,
+        inline_keyboard: tuple[tuple[tuple[str, str], ...], ...] | None = None,
     ) -> None:
         ...
 
@@ -63,6 +64,7 @@ class TelegramBotRuntime:
                 update.chat_id,
                 result.response_text,
                 reply_keyboard=result.reply_keyboard,
+                inline_keyboard=result.inline_keyboard,
             )
         self._maybe_send_scheduled_reports()
         return len(updates)

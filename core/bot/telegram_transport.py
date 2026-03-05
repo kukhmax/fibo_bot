@@ -46,6 +46,7 @@ class TelegramApiTransport:
         chat_id: int,
         text: str,
         reply_keyboard: tuple[tuple[str, ...], ...] | None = None,
+        inline_keyboard: tuple[tuple[tuple[str, str], ...], ...] | None = None,
     ) -> None:
         payload: dict[str, object] = {
             "chat_id": chat_id,
@@ -56,6 +57,12 @@ class TelegramApiTransport:
                 "keyboard": [[{"text": value} for value in row] for row in reply_keyboard],
                 "resize_keyboard": True,
                 "is_persistent": True,
+            }
+        if inline_keyboard is not None:
+            payload["reply_markup"] = {
+                "inline_keyboard": [
+                    [{"text": text, "callback_data": data} for (text, data) in row] for row in inline_keyboard
+                ]
             }
         req = request.Request(
             self._api_url("/sendMessage"),
@@ -74,6 +81,24 @@ def _parse_incoming_message(payload: object) -> IncomingMessage | None:
         return None
     if "update_id" not in payload or not isinstance(payload["update_id"], int):
         return None
+    if isinstance(payload.get("callback_query"), dict):
+        cq = payload["callback_query"]
+        data = cq.get("data")
+        message = cq.get("message") or {}
+        chat = message.get("chat") or {}
+        from_user = cq.get("from") or {}
+        if not isinstance(data, str) or not data.strip():
+            return None
+        chat_id = chat.get("id")
+        user_id = from_user.get("id")
+        if not isinstance(chat_id, int) or not isinstance(user_id, int):
+            return None
+        return IncomingMessage(
+            update_id=int(payload["update_id"]),
+            chat_id=chat_id,
+            user_id=user_id,
+            text=data.strip(),
+        )
     message = payload.get("message")
     if not isinstance(message, dict):
         return None
