@@ -282,6 +282,17 @@ Commit: `4ecff93`
 Результат: Подэтап `E2.2` завершен, пользовательский профиль Telegram готов для дальнейших управляющих команд `/mode`, `/set_tf`, `/set_risk`, `/status`.  
 Commit: `6bf74f3`
 
+Дата/время (UTC): 2026-03-05  
+Подэтап: `E2.3`  
+Что сделано: Реализованы отдельные команды управления профилем `/mode`, `/set_tf`, `/set_risk` и обновлен статусный вывод `/status`.  
+Какие файлы изменены: `core/bot/commands.py`, `tests/test_bot_router.py`, `DEVELOP.md`  
+Реализованная логика: Добавлены хендлеры команд `/mode`, `/set_tf`, `/set_risk` с валидацией аргументов и персистентным сохранением в пользовательский профиль; `/status` отражает обновленные значения профиля, help автоматически показывает расширенный набор команд.  
+Команды: `python -m unittest tests.test_bot_router tests.test_bot_profile_store -v`, `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot tests.test_candle_builder tests.test_data_quality tests.test_data_fallback tests.test_ws_runtime tests.test_realtime_candle_pipeline tests.test_mexc_ws_adapter tests.test_persistence tests.test_bot_router tests.test_bot_profile_store -v`, `git add DEVELOP.md core/bot/commands.py tests/test_bot_router.py`, `git commit -m <сообщение>`  
+Тесты: Прогнано 47 unit-тестов, все успешны; добавлены проверки обновления mode/timeframe/risk через отдельные команды и валидации невалидного риска.  
+Как проверено: Подтверждена корректность команд E2.3 и отсутствие регрессий в существующих модулях проекта.  
+Результат: Подэтап `E2.3` завершен, управление профилем через `/mode`, `/set_tf`, `/set_risk`, `/status` готово к использованию.  
+Commit: будет добавлен после фиксации изменений в git.
+
 ---
 
 ## 5) TODO после MVP (согласовано)

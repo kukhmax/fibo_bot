@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 from core.bot.router import CommandContext
 from core.bot.router import CommandRouter
 from core.bot.profile import TelegramUserProfile
@@ -36,6 +38,45 @@ def build_default_router(
         commands = ", ".join(router.available_commands())
         return f"Доступные команды: {commands}"
 
+    def mode_handler(ctx: CommandContext, args: str) -> str:
+        profile = store.get_or_create(ctx.user_id, config)
+        raw_mode = args.strip().lower()
+        if not raw_mode:
+            return f"Текущий mode={profile.mode}. Использование: /mode <signal_only|paper|live>"
+        errors: list[str] = []
+        mode = _parse_mode(raw_mode, errors)
+        if errors:
+            return _format_profile_error(profile, errors)
+        updated = replace(profile, mode=mode)
+        store.save(updated)
+        return f"mode обновлен: {updated.mode}"
+
+    def set_tf_handler(ctx: CommandContext, args: str) -> str:
+        profile = store.get_or_create(ctx.user_id, config)
+        raw_timeframe = args.strip().lower()
+        if not raw_timeframe:
+            return f"Текущий timeframe={profile.timeframe}. Использование: /set_tf <1m|5m|15m|1h|4h>"
+        errors: list[str] = []
+        timeframe = _parse_timeframe(raw_timeframe, errors)
+        if errors:
+            return _format_profile_error(profile, errors)
+        updated = replace(profile, timeframe=timeframe)
+        store.save(updated)
+        return f"timeframe обновлен: {updated.timeframe}"
+
+    def set_risk_handler(ctx: CommandContext, args: str) -> str:
+        profile = store.get_or_create(ctx.user_id, config)
+        raw_risk = args.strip()
+        if not raw_risk:
+            return f"Текущий risk={profile.risk_per_trade_pct}. Использование: /set_risk <0.1..2.0>"
+        errors: list[str] = []
+        risk = _parse_risk(raw_risk, errors)
+        if errors:
+            return _format_profile_error(profile, errors)
+        updated = replace(profile, risk_per_trade_pct=risk)
+        store.save(updated)
+        return f"risk обновлен: {updated.risk_per_trade_pct}"
+
     def status_handler(ctx: CommandContext, __: str) -> str:
         profile = store.get_or_create(ctx.user_id, config)
         return (
@@ -50,6 +91,9 @@ def build_default_router(
 
     router.add_route("/start", start_handler)
     router.add_route("/help", help_handler)
+    router.add_route("/mode", mode_handler)
+    router.add_route("/set_tf", set_tf_handler)
+    router.add_route("/set_risk", set_risk_handler)
     router.add_route("/status", status_handler)
     return router
 
@@ -78,15 +122,11 @@ def _apply_start_updates(
         values[normalized_key] = raw_value.strip()
     if errors:
         return profile, errors
-    mode = values["mode"].lower()
+    mode = _parse_mode(values["mode"], errors)
     exchange = values["exchange"].lower()
-    timeframe = values["timeframe"].lower()
-    if mode not in {"signal_only", "paper", "live"}:
-        errors.append("mode должен быть signal_only|paper|live")
+    timeframe = _parse_timeframe(values["timeframe"], errors)
     if exchange not in {"hyperliquid", "mexc"}:
         errors.append("exchange должен быть hyperliquid|mexc")
-    if timeframe not in {"1m", "5m", "15m", "1h", "4h"}:
-        errors.append("timeframe должен быть 1m|5m|15m|1h|4h")
     risk_value = _parse_risk(values["risk"], errors)
     report_value = _parse_report_minutes(values["report"], errors)
     if errors:
@@ -104,13 +144,27 @@ def _apply_start_updates(
     )
 
 
+def _parse_mode(raw: str, errors: list[str]) -> str:
+    value = raw.strip().lower()
+    if value not in {"signal_only", "paper", "live"}:
+        errors.append("mode должен быть signal_only|paper|live")
+    return value
+
+
+def _parse_timeframe(raw: str, errors: list[str]) -> str:
+    value = raw.strip().lower()
+    if value not in {"1m", "5m", "15m", "1h", "4h"}:
+        errors.append("timeframe должен быть 1m|5m|15m|1h|4h")
+    return value
+
+
 def _parse_risk(raw: str, errors: list[str]) -> float:
     try:
         value = float(raw)
     except ValueError:
         errors.append("risk должен быть числом")
         return 0.0
-    if value <= 0 or value > 2:
+    if value < 0.1 or value > 2:
         errors.append("risk должен быть в диапазоне 0.1..2.0")
     return value
 

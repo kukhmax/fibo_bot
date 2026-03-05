@@ -83,6 +83,37 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(result.handled)
         self.assertIn("Ошибка обновления профиля", result.response_text)
 
+    async def test_mode_command_updates_profile(self) -> None:
+        config = load_environment_config("dev")
+        router = build_default_router(config, profile_store=self._store)
+        mode_result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/mode paper"))
+        status_result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/status"))
+        self.assertIn("mode обновлен: paper", mode_result.response_text)
+        self.assertIn("mode=paper", status_result.response_text)
+
+    async def test_set_tf_command_updates_profile(self) -> None:
+        config = load_environment_config("dev")
+        router = build_default_router(config, profile_store=self._store)
+        tf_result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/set_tf 15m"))
+        status_result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/status"))
+        self.assertIn("timeframe обновлен: 15m", tf_result.response_text)
+        self.assertIn("timeframe=15m", status_result.response_text)
+
+    async def test_set_risk_command_updates_profile(self) -> None:
+        config = load_environment_config("dev")
+        router = build_default_router(config, profile_store=self._store)
+        risk_result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/set_risk 1.2"))
+        status_result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/status"))
+        self.assertIn("risk обновлен: 1.2", risk_result.response_text)
+        self.assertIn("risk=1.2", status_result.response_text)
+
+    async def test_set_risk_command_rejects_invalid_value(self) -> None:
+        config = load_environment_config("dev")
+        router = build_default_router(config, profile_store=self._store)
+        result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/set_risk 9"))
+        self.assertIn("Ошибка обновления профиля", result.response_text)
+        self.assertIn("risk должен быть в диапазоне 0.1..2.0", result.response_text)
+
     async def test_runtime_fetches_updates_and_sends_responses(self) -> None:
         config = load_environment_config("dev")
         router = build_default_router(config, profile_store=self._store)
