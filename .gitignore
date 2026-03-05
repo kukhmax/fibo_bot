@@ -110,3 +110,4 @@ tmp/
 
 # 🧯 Технические артефакты терминала
 tatus --short --branch; git log --oneline -n 1'
+tatus --short --branch'
