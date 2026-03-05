@@ -9,6 +9,8 @@ from core.bot.health import health_snapshot_dict
 from core.bot.runtime import TelegramBotRuntime
 from core.bot.telegram_transport import TelegramApiTransport
 from core.bot.profile import TelegramUserProfileStore
+from core.data.pipeline import RealtimeCandlePipeline
+from core.strategies import TrendPullbackStrategy
 from core.config import load_environment_config
 from core.config import load_runtime_secrets
 
@@ -36,7 +38,7 @@ def run(once: bool = False, print_commands: bool = False) -> None:
         transport=TelegramApiTransport(bot_token=secrets.telegram_bot_token),
         profile_store=store,
     )
-    asyncio.run(_run_runtime(runtime=runtime, once=once))
+    asyncio.run(_run_app(runtime=runtime, transport=transport, store=store, config_env=config, once=once))
 
 
 def main() -> None:
@@ -64,3 +66,49 @@ async def _run_runtime(runtime: TelegramBotRuntime, once: bool) -> None:
 
 if __name__ == "__main__":
     main()
+
+
+async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport, store: TelegramUserProfileStore, config_env, once: bool) -> None:  # type: ignore[no-untyped-def]
+    if once:
+        await _run_runtime(runtime, once=True)
+        return
+    enable_signals = bool(os.getenv("ENABLE_SIGNALS"))
+    if not enable_signals:
+        await _run_runtime(runtime, once=False)
+        return
+    symbol = os.getenv("FIB_SYMBOL", "BTCUSDT")
+    timeframe = config_env.exchange.default_timeframe
+    strategy = TrendPullbackStrategy()
+
+    async def on_candle(candle):
+        signal = strategy.on_candle(candle)
+        if signal is None:
+            return
+        # Broadcast to users in signal_only/paper
+        state = store._cache.load()
+        for key, payload in state.items():
+            if not isinstance(key, str) or not key.startswith("profile:"):
+                continue
+            try:
+                user_id = int(key.split(":", 1)[1])
+            except Exception:
+                continue
+            mode = str(payload.get("mode", "signal_only")).lower()
+            if mode not in {"signal_only", "paper"}:
+                continue
+            text = (
+                f"[Trend Pullback] {signal.direction} {symbol} {timeframe}\n"
+                f"reason={signal.reason}"
+            )
+            transport.send_text(chat_id=user_id, text=text)
+
+    pipeline = RealtimeCandlePipeline(symbol=symbol, timeframe=timeframe, on_candle=on_candle)
+
+    async def run_pipeline():
+        while True:
+            try:
+                await pipeline.run()
+            except Exception:
+                await asyncio.sleep(1)
+
+    await asyncio.gather(_run_runtime(runtime, once=False), run_pipeline())

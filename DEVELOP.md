@@ -350,6 +350,19 @@ Commit: `94e4f76`
 Тесты: Прогнано 53 unit-теста, все успешны; добавлены проверки inline-клавиатуры и парсинга `callback_query`.  
 Как проверено: Нажатие inline-кнопки исполняет `/positions` через `callback_query`, клавиатуры доставляются в `sendMessage`.  
 Результат: Подэтап `E2.6` завершен, команда `/positions` и базовые action-кнопки доступны пользователю.  
+Commit: `bebcfaa`
+
+---
+
+Дата/время (UTC): 2026-03-05  
+Подэтап: `E3.1`  
+Что сделано: Подключена базовая стратегия Trend Pullback и опциональная рассылка сигналов в режимах `signal_only` и `paper` (включается переменной окружения `ENABLE_SIGNALS=1`).  
+Какие файлы изменены: `core/strategies/__init__.py`, `core/strategies/trend_pullback.py`, `core/bot/main.py`, `DEVELOP.md`  
+Реализованная логика: Реализован простейший детектор тренд-ресюма по трем последовательным закрытиям; при включении опции запускается pipeline свечей и при сигнале выполняется broadcast по пользователям в разрешенных режимах. Символ задается `FIB_SYMBOL`, таймфрейм — из профиля окружения.  
+Команды: `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot tests.test_candle_builder tests.test_data_quality tests.test_data_fallback tests.test_ws_runtime tests.test_realtime_candle_pipeline tests.test_mexc_ws_adapter tests.test_persistence tests.test_bot_router tests.test_bot_profile_store tests.test_telegram_transport tests.test_reports_scheduler -v`, `git add DEVELOP.md core/strategies core/bot/main.py`, `git commit -m <сообщение>`  
+Тесты: Прогнано 53 unit-теста, все успешны; стратегия включается только при `ENABLE_SIGNALS=1`, поэтому регрессия отсутствует.  
+Как проверено: Проверена сборка и запуск тестов; интеграция стратегии законтурена флагом окружения.  
+Результат: Подэтап `E3.1` завершен, стратегический контур подключен в режиме сигналов.  
 Commit: будет добавлен после фиксации изменений в git.
 
 ---
