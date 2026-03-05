@@ -390,6 +390,32 @@ Commit: `2203a93`
 Тесты: Прогнано 55 unit-тестов, все успешны; добавлены юнит-тесты стратегии.  
 Как проверено: Стратегия изолирована unit-тестами; интеграция включается только флагом окружения.  
 Результат: Подэтап `E3.2` завершен, доступен выбор действующей стратегии.  
+Commit: `8448f7c`
+
+---
+
+Дата/время (UTC): 2026-03-05  
+Подэтап: `E3.3`  
+Что сделано: Реализована стратегия Liquidity Sweep Reversal и подключен выбор через `FIB_STRATEGY=liquidity_sweep`.  
+Какие файлы изменены: `core/strategies/liquidity_sweep_reversal.py`, `core/strategies/__init__.py`, `core/bot/main.py`, `tests/test_strategy_liquidity_sweep.py`, `DEVELOP.md`  
+Реализованная логика: BUY при пробое предыдущего low и возврате выше него с бычьим закрытием; SELL при пробое предыдущего high и возврате ниже него с медвежьим закрытием.  
+Команды: `python -m unittest tests.test_strategy_liquidity_sweep -v`, полный регресс `python -m unittest ... -v`  
+Тесты: Прогнано 57 unit-тестов, все успешны; добавлены юнит-тесты стратегии.  
+Как проверено: Поведение подтверждено тестами, выбор стратегии через переменную окружения работает совместно с текущим контуром сигналов.  
+Результат: Подэтап `E3.3` завершен, добавлена третья стратегия в выбор.  
+Commit: `8448f7c`
+
+---
+
+Дата/время (UTC): 2026-03-05  
+Подэтап: `E3.4`  
+Что сделано: Реализован rule-based regime classifier для определения рыночного режима по окну свечей.  
+Какие файлы изменены: `core/regime/classifier.py`, `core/regime/__init__.py`, `tests/test_regime_classifier.py`, `DEVELOP.md`  
+Реализованная логика: Классификатор возвращает `unknown|range|trend_up|trend_down|volatile` на основе тренд-движения, realized volatility и среднего intrabar spread, а также confidence и explanation.  
+Команды: `python -m unittest tests.test_regime_classifier -v`, полный регресс `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot tests.test_candle_builder tests.test_data_quality tests.test_data_fallback tests.test_ws_runtime tests.test_realtime_candle_pipeline tests.test_mexc_ws_adapter tests.test_persistence tests.test_bot_router tests.test_bot_profile_store tests.test_telegram_transport tests.test_reports_scheduler tests.test_strategy_volatility_breakout tests.test_strategy_liquidity_sweep tests.test_regime_classifier -v`  
+Тесты: Прогнано 62 unit-теста, все успешны; добавлены тесты на все режимы классификации.  
+Как проверено: Unit-тесты подтверждают корректную классификацию режимов и отсутствие регрессий во всех существующих модулях.  
+Результат: Подэтап `E3.4` завершен, режим рынка доступен для дальнейшего переключения стратегий и explain-полей.  
 Commit: будет добавлен после фиксации изменений в git.
 
 ---
