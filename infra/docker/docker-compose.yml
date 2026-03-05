@@ -1,0 +1,51 @@
+services:
+  app:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.app
+    container_name: fib_bot_app
+    restart: unless-stopped
+    env_file:
+      - path: ../../.env
+        required: false
+    environment:
+      APP_ENV: ${APP_ENV:-dev}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql://fib_bot:fib_bot@postgres:5432/fib_bot
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - fib_bot_net
+
+  redis:
+    image: redis:7-alpine
+    container_name: fib_bot_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - fib_bot_net
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: fib_bot_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: fib_bot
+      POSTGRES_USER: fib_bot
+      POSTGRES_PASSWORD: fib_bot
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - fib_bot_net
+
+volumes:
+  redis_data:
+  postgres_data:
+
+networks:
+  fib_bot_net:
+    driver: bridge

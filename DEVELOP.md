@@ -161,6 +161,17 @@ Commit: см. `git log --oneline -n 2`
 Результат: Подэтап `E0.3` завершен, контур секретов и шаблонов окружения готов к использованию в следующих этапах.  
 Commit: см. `git log --oneline -n 3`
 
+Дата/время (UTC): 2026-03-05  
+Подэтап: `E0.4`  
+Что сделано: Подготовлен Docker-контур с `docker-compose` для сервисов `app`, `redis`, `postgres` и базовым Dockerfile приложения.  
+Какие файлы изменены: `infra/docker/docker-compose.yml`, `infra/docker/Dockerfile.app`, `core/bot/main.py`, `.env.example`, `DEVELOP.md`  
+Реализованная логика: Добавлен контейнерный запуск приложения через `python -m core.bot.main`, инфраструктурные сервисы Redis/Postgres с volume-хранилищами, сеть `fib_bot_net`, а также опциональное подключение `.env` для локального запуска без обязательного файла.  
+Команды: `python -m core.bot.main --once`, `docker compose -f infra/docker/docker-compose.yml config`, `git add DEVELOP.md infra/docker/docker-compose.yml infra/docker/Dockerfile.app core/bot/main.py .env.example`, `git commit -m <сообщение>`  
+Тесты: Проверен запуск app stub командой `python -m core.bot.main --once`; проверена валидность compose-файла через `docker compose ... config`.  
+Как проверено: Compose-конфигурация разворачивается корректно, сервисы и зависимости интерпретируются без ошибок, приложение стартует в локальном режиме.  
+Результат: Подэтап `E0.4` завершен, инфраструктура app/redis/postgres готова к следующему шагу health-check и smoke-проверки.  
+Commit: будет добавлен после фиксации изменений в git.
+
 ---
 
 ## 5) TODO после MVP (согласовано)
