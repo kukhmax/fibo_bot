@@ -1,7 +1,7 @@
 import unittest
 
 from core.data.models import Candle
-from core.ml import HistoricalTrainingDataPipeline
+from core.ml.history_pipeline import HistoricalTrainingDataPipeline
 
 
 def _candle(ts: int, close: float) -> Candle:

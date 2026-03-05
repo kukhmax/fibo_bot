@@ -1,7 +1,7 @@
 import unittest
 
 from core.data.models import Candle
-from core.ml import MlTrainDatasetBuilder
+from core.ml.dataset_builder import MlTrainDatasetBuilder
 
 
 def _candle(ts: int, close: float) -> Candle:

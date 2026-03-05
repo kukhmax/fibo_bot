@@ -485,6 +485,19 @@ Commit: `e79de69`
 
 ---
 
+Дата/время (UTC): 2026-03-05  
+Подэтап: `E4.4`  
+Что сделано: Обучение базовой модели ML-фильтра вынесено в отдельный training pipeline с сохранением артефактов.  
+Какие файлы изменены: `core/ml/model.py`, `core/ml/trainer.py`, `core/ml/artifacts.py`, `core/ml/training_pipeline.py`, `core/ml/__init__.py`, `tests/test_ml_training.py`, `tests/test_ml_labeling.py`, `tests/test_ml_history_pipeline.py`, `tests/test_ml_dataset_builder.py`, `DEVELOP.md`  
+Реализованная логика: Добавлена базовая вероятностная модель (`BaselineProbabilityModel`), trainer на градиентном шаге для бинарной классификации, хранилище артефактов `runtime/ml/baseline_model.json` и orchestration-класс `MlTrainingPipeline` для цепочки dataset→train→save.  
+Команды: `python -m unittest tests.test_ml_training tests.test_ml_labeling tests.test_feature_dataset_builder tests.test_ml_dataset_builder tests.test_ml_history_pipeline -v`, полный регресс `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot tests.test_candle_builder tests.test_data_quality tests.test_data_fallback tests.test_ws_runtime tests.test_realtime_candle_pipeline tests.test_mexc_ws_adapter tests.test_persistence tests.test_bot_router tests.test_bot_profile_store tests.test_telegram_transport tests.test_reports_scheduler tests.test_strategy_selector tests.test_strategy_trend_pullback tests.test_strategy_volatility_breakout tests.test_strategy_liquidity_sweep tests.test_regime_classifier tests.test_ml_history_pipeline tests.test_feature_dataset_builder tests.test_ml_dataset_builder tests.test_ml_labeling tests.test_ml_training -v`  
+Тесты: Прогнано 79 unit-тестов, все успешны; добавлены тесты обучения, сохранения/загрузки артефактов и end-to-end training pipeline.  
+Как проверено: Подтверждено, что модель обучается на простом разделимом наборе, сериализуется в артефакт и загружается обратно без потери структуры.  
+Результат: Подэтап `E4.4` завершен, базовая ML-модель и сохранение артефактов готовы для дальнейшего инференса.  
+Commit: будет добавлен после фиксации изменений в git.
+
+---
+
 ## 5) TODO после MVP (согласовано)
 
 - Добавить whitelist активов по ликвидности и спреду.

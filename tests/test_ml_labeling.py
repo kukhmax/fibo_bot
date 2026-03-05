@@ -1,8 +1,8 @@
 import unittest
 
 from core.data.models import Candle
-from core.ml import BinaryOutcomeLabeler
-from core.ml import split_train_validation
+from core.ml.labeling import BinaryOutcomeLabeler
+from core.ml.train_validation import split_train_validation
 
 
 def _candle(ts: int, close: float) -> Candle:
