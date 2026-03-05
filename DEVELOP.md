@@ -459,6 +459,19 @@ Commit: `39d92c1`
 
 ---
 
+Дата/время (UTC): 2026-03-05  
+Подэтап: `E4.2`  
+Что сделано: Реализован feature pipeline и сборка train-ready датасета для ML.  
+Какие файлы изменены: `core/features/dataset_builder.py`, `core/features/__init__.py`, `core/ml/dataset_builder.py`, `core/ml/__init__.py`, `tests/test_feature_dataset_builder.py`, `tests/test_ml_dataset_builder.py`, `DEVELOP.md`  
+Реализованная логика: `FeatureDatasetBuilder` формирует признаки (`ret_1`, `range_pct`, `body_pct`, `sma_ratio`, `volume`), рассчитывает label по горизонту и порогу, выполняет train/validation split. `MlTrainDatasetBuilder` связывает history pipeline и feature builder в единый train-ready контур.  
+Команды: `python -m unittest tests.test_feature_dataset_builder tests.test_ml_dataset_builder tests.test_ml_history_pipeline -v`, полный регресс `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot tests.test_candle_builder tests.test_data_quality tests.test_data_fallback tests.test_ws_runtime tests.test_realtime_candle_pipeline tests.test_mexc_ws_adapter tests.test_persistence tests.test_bot_router tests.test_bot_profile_store tests.test_telegram_transport tests.test_reports_scheduler tests.test_strategy_selector tests.test_strategy_trend_pullback tests.test_strategy_volatility_breakout tests.test_strategy_liquidity_sweep tests.test_regime_classifier tests.test_ml_history_pipeline tests.test_feature_dataset_builder tests.test_ml_dataset_builder -v`  
+Тесты: Прогнано 74 unit-теста, все успешны; добавлены тесты генерации фичей, split и интеграции ML dataset builder.  
+Как проверено: Подтверждены корректные признаки, бинарные target-labels и совместимость нового контура со всем проектом без регрессий.  
+Результат: Подэтап `E4.2` завершен, train-ready датасет формируется автоматически из historical pipeline.  
+Commit: будет добавлен после фиксации изменений в git.
+
+---
+
 ## 5) TODO после MVP (согласовано)
 
 - Добавить whitelist активов по ликвидности и спреду.
