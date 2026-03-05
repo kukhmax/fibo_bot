@@ -433,6 +433,19 @@ Commit: `9c223ae`
 
 ---
 
+Дата/время (UTC): 2026-03-05  
+Подэтап: `E3.6`  
+Что сделано: Добавлено переключение активной стратегии по рыночному режиму (`auto_regime`) с использованием классификатора режимов.  
+Какие файлы изменены: `core/strategies/selector.py`, `core/strategies/__init__.py`, `core/bot/main.py`, `tests/test_strategy_selector.py`, `DEVELOP.md`  
+Реализованная логика: В режиме `FIB_STRATEGY=auto_regime` выбор выполняется по метке режима (`volatile`→`volatility_breakout`, `trend_*`→`trend_pullback`, `range`→`liquidity_sweep`, иначе fallback). В уведомление добавлены поля `regime` и `confidence`. Ручной выбор стратегии через `FIB_STRATEGY` сохранен.  
+Команды: `python -m unittest tests.test_strategy_selector tests.test_strategy_trend_pullback tests.test_strategy_volatility_breakout tests.test_strategy_liquidity_sweep tests.test_regime_classifier -v`, полный регресс `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot tests.test_candle_builder tests.test_data_quality tests.test_data_fallback tests.test_ws_runtime tests.test_realtime_candle_pipeline tests.test_mexc_ws_adapter tests.test_persistence tests.test_bot_router tests.test_bot_profile_store tests.test_telegram_transport tests.test_reports_scheduler tests.test_strategy_selector tests.test_strategy_trend_pullback tests.test_strategy_volatility_breakout tests.test_strategy_liquidity_sweep tests.test_regime_classifier -v`  
+Тесты: Прогнано 68 unit-тестов, все успешны; добавлены тесты селектора стратегий.  
+Как проверено: Проверена корректная маршрутизация режим→стратегия и отсутствие регрессий во всем проекте.  
+Результат: Подэтап `E3.6` завершен, динамический выбор стратегии по режиму рынка включен.  
+Commit: будет добавлен после фиксации изменений в git.
+
+---
+
 ## 5) TODO после MVP (согласовано)
 
 - Добавить whitelist активов по ликвидности и спреду.

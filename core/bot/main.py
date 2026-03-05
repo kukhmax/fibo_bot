@@ -1,5 +1,6 @@
 from argparse import ArgumentParser
 import asyncio
+from collections import deque
 import json
 import os
 import sys
@@ -10,9 +11,11 @@ from core.bot.profile import TelegramUserProfileStore
 from core.bot.runtime import TelegramBotRuntime
 from core.bot.telegram_transport import TelegramApiTransport
 from core.data.pipeline import RealtimeCandlePipeline
+from core.regime import RuleBasedRegimeClassifier
 from core.strategies import LiquiditySweepReversalStrategy
 from core.strategies import TrendPullbackStrategy
 from core.strategies import VolatilityBreakoutStrategy
+from core.strategies import select_strategy_by_regime
 from core.config import load_environment_config
 from core.config import load_runtime_secrets
 
@@ -77,16 +80,23 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
         return
     symbol = os.getenv("FIB_SYMBOL", "BTCUSDT")
     timeframe = config_env.exchange.default_timeframe
-    strategy_name = os.getenv("FIB_STRATEGY", "trend_pullback").strip().lower()
-    if strategy_name == "volatility_breakout":
-        strategy = VolatilityBreakoutStrategy()
-    elif strategy_name == "liquidity_sweep":
-        strategy = LiquiditySweepReversalStrategy()
-    else:
-        strategy = TrendPullbackStrategy()
+    strategy_mode = os.getenv("FIB_STRATEGY", "auto_regime").strip().lower()
+    strategies = {
+        "trend_pullback": TrendPullbackStrategy(),
+        "volatility_breakout": VolatilityBreakoutStrategy(),
+        "liquidity_sweep": LiquiditySweepReversalStrategy(),
+    }
+    classifier = RuleBasedRegimeClassifier()
+    regime_window = deque(maxlen=30)
 
     async def on_candle(candle):
-        decision = strategy.on_candle(candle)
+        regime_window.append(candle)
+        regime = classifier.classify(list(regime_window))
+        if strategy_mode in strategies:
+            strategy_name = strategy_mode
+        else:
+            strategy_name = select_strategy_by_regime(regime.label, fallback="trend_pullback")
+        decision = strategies[strategy_name].on_candle(candle)
         if decision.action != "entry":
             return
         state = store._cache.load()
@@ -102,6 +112,7 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
                 continue
             text = (
                 f"[{decision.strategy}] {decision.direction} {symbol} {timeframe}\n"
+                f"regime={regime.label} confidence={regime.confidence}\n"
                 f"explain={decision.explain}"
             )
             transport.send_text(chat_id=user_id, text=text)
