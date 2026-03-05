@@ -183,6 +183,17 @@ Commit: `a786b48`
 Результат: Подэтап `E0.5` завершен, проект готов к переходу к этапу Data Layer (`E1`).  
 Commit: `c2b6722`
 
+Дата/время (UTC): 2026-03-05  
+Подэтап: `E1`  
+Что сделано: Реализован базовый Data Layer с потоковой обработкой тиков, построением свечей, REST fallback и резервом на MEXC.  
+Какие файлы изменены: `core/data/__init__.py`, `core/data/models.py`, `core/data/candle_builder.py`, `core/data/quality.py`, `core/data/rest_client.py`, `core/data/websocket_client.py`, `tests/test_candle_builder.py`, `tests/test_data_quality.py`, `tests/test_data_fallback.py`, `DEVELOP.md`  
+Реализованная логика: Добавлены модели `Tick/Candle`, `CandleBuilder` для realtime агрегации, `validate_candle_sequence` для контроля качества, Hyperliquid WS parser и orchestrator со stale-детекцией, а также загрузчик исторических свечей с fallback Hyperliquid→MEXC.  
+Команды: `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot tests.test_candle_builder tests.test_data_quality tests.test_data_fallback -v`, `git add DEVELOP.md core/data tests/test_candle_builder.py tests/test_data_quality.py tests/test_data_fallback.py`, `git commit -m <сообщение>`  
+Тесты: Выполнено 17 unit-тестов, все успешны; покрыты сценарии агрегации свечей, валидации качества, stale WS и REST fallback.  
+Как проверено: Полный тестовый прогон подтвердил отсутствие регрессий в конфигурации/health-контуре и корректную работу новых модулей Data Layer.  
+Результат: Этап `E1` закрывает базовый каркас data ingestion и подготавливает почву для подключения реальных WS-каналов и funding/OI в следующем подэтапе.  
+Commit: будет добавлен после фиксации изменений в git.
+
 ---
 
 ## 5) TODO после MVP (согласовано)
