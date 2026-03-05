@@ -142,13 +142,13 @@ Commit: `6950869`
 Дата/время (UTC): 2026-03-05  
 Подэтап: `E0.2`  
 Что сделано: Реализована базовая конфигурация окружений `dev/test/paper` с загрузчиком профилей и первичным тестовым покрытием.  
-Какие файлы изменены: `core/config/__init__.py`, `core/config/models.py`, `core/config/loader.py`, `core/config/profiles/dev.json`, `core/config/profiles/test.json`, `core/config/profiles/paper.json`, `tests/test_config_loader.py`, `DEVELOP.md`  
-Реализованная логика: Добавлены типизированные модели конфигурации, загрузчик JSON-профилей с валидацией окружения и три профиля окружений с согласованными параметрами бирж, риска, режима бота и ML-фильтра.  
-Команды: `python -m unittest tests.test_config_loader -v`, `git add DEVELOP.md core/config tests/test_config_loader.py`, `git commit -m <сообщение>`  
+Какие файлы изменены: `core/config/__init__.py`, `core/config/models.py`, `core/config/loader.py`, `core/config/profiles/dev.json`, `core/config/profiles/test.json`, `core/config/profiles/paper.json`, `tests/test_config_loader.py`, `.gitignore`, `DEVELOP.md`  
+Реализованная логика: Добавлены типизированные модели конфигурации, загрузчик JSON-профилей с валидацией окружения и три профиля окружений с согласованными параметрами бирж, риска, режима бота и ML-фильтра. Добавлен `.gitignore` с базовыми правилами игнорирования секретов, артефактов Python и технического terminal-артефакта.  
+Команды: `python -m unittest tests.test_config_loader -v`, `git add DEVELOP.md core/config tests/test_config_loader.py .gitignore`, `git commit -m <сообщение>`  
 Тесты: `python -m unittest tests.test_config_loader -v` — 4 теста, все успешны (загрузка dev/test/paper + проверка ошибки для неизвестного окружения).  
 Как проверено: Проверена загрузка конфигов через unit-тесты и сопоставление ключевых значений требованиям из PLAN.md.  
 Результат: Базовый конфиг-контур готов для подэтапа `E0.3` (шаблоны `.env` и правила секретов).  
-Commit: будет добавлен после фиксации изменений в git.
+Commit: `0c3af18`
 
 ---
 
