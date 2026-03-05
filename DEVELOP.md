@@ -416,6 +416,19 @@ Commit: `8448f7c`
 Тесты: Прогнано 62 unit-теста, все успешны; добавлены тесты на все режимы классификации.  
 Как проверено: Unit-тесты подтверждают корректную классификацию режимов и отсутствие регрессий во всех существующих модулях.  
 Результат: Подэтап `E3.4` завершен, режим рынка доступен для дальнейшего переключения стратегий и explain-полей.  
+Commit: `b1a2e42`
+
+---
+
+Дата/время (UTC): 2026-03-05  
+Подэтап: `E3.5`  
+Что сделано: Введен единый интерфейс сигналов `StrategyDecision` и explain-поля как для входов, так и для пропусков.  
+Какие файлы изменены: `core/strategies/signal.py`, `core/strategies/trend_pullback.py`, `core/strategies/volatility_breakout.py`, `core/strategies/liquidity_sweep_reversal.py`, `core/strategies/__init__.py`, `core/bot/main.py`, `tests/test_strategy_trend_pullback.py`, `tests/test_strategy_volatility_breakout.py`, `tests/test_strategy_liquidity_sweep.py`, `DEVELOP.md`  
+Реализованная логика: Все стратегии возвращают `StrategyDecision(strategy, action, direction, explain)`; `action=entry|skip`, `explain` всегда заполнен. В signal runtime рассылка идет только по `entry`, но explain сохранен и для skip-решений в едином контракте.  
+Команды: `python -m unittest tests.test_strategy_trend_pullback tests.test_strategy_volatility_breakout tests.test_strategy_liquidity_sweep -v`, полный регресс `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot tests.test_candle_builder tests.test_data_quality tests.test_data_fallback tests.test_ws_runtime tests.test_realtime_candle_pipeline tests.test_mexc_ws_adapter tests.test_persistence tests.test_bot_router tests.test_bot_profile_store tests.test_telegram_transport tests.test_reports_scheduler tests.test_strategy_trend_pullback tests.test_strategy_volatility_breakout tests.test_strategy_liquidity_sweep tests.test_regime_classifier -v`  
+Тесты: Прогнано 64 unit-теста, все успешны; обновлены тесты стратегий и добавлен отдельный тест для Trend Pullback.  
+Как проверено: Подтверждена совместимость стратегий через единый контракт, а также отсутствие регрессий в существующих модулях.  
+Результат: Подэтап `E3.5` завершен, explain-контур для входов/пропусков унифицирован.  
 Commit: будет добавлен после фиксации изменений в git.
 
 ---

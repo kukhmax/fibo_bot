@@ -6,11 +6,13 @@ import sys
 
 from core.bot.commands import build_default_router
 from core.bot.health import health_snapshot_dict
+from core.bot.profile import TelegramUserProfileStore
 from core.bot.runtime import TelegramBotRuntime
 from core.bot.telegram_transport import TelegramApiTransport
-from core.bot.profile import TelegramUserProfileStore
 from core.data.pipeline import RealtimeCandlePipeline
-from core.strategies import TrendPullbackStrategy, VolatilityBreakoutStrategy, LiquiditySweepReversalStrategy
+from core.strategies import LiquiditySweepReversalStrategy
+from core.strategies import TrendPullbackStrategy
+from core.strategies import VolatilityBreakoutStrategy
 from core.config import load_environment_config
 from core.config import load_runtime_secrets
 
@@ -33,11 +35,8 @@ def run(once: bool = False, print_commands: bool = False) -> None:
         return
     if not secrets.telegram_bot_token:
         raise ValueError("Missing required secret: TELEGRAM_BOT_TOKEN")
-    runtime = TelegramBotRuntime(
-        router=router,
-        transport=TelegramApiTransport(bot_token=secrets.telegram_bot_token),
-        profile_store=store,
-    )
+    transport = TelegramApiTransport(bot_token=secrets.telegram_bot_token)
+    runtime = TelegramBotRuntime(router=router, transport=transport, profile_store=store)
     asyncio.run(_run_app(runtime=runtime, transport=transport, store=store, config_env=config, once=once))
 
 
@@ -87,10 +86,9 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
         strategy = TrendPullbackStrategy()
 
     async def on_candle(candle):
-        signal = strategy.on_candle(candle)
-        if signal is None:
+        decision = strategy.on_candle(candle)
+        if decision.action != "entry":
             return
-        # Broadcast to users in signal_only/paper
         state = store._cache.load()
         for key, payload in state.items():
             if not isinstance(key, str) or not key.startswith("profile:"):
@@ -103,8 +101,8 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
             if mode not in {"signal_only", "paper"}:
                 continue
             text = (
-                f"[Trend Pullback] {signal.direction} {symbol} {timeframe}\n"
-                f"reason={signal.reason}"
+                f"[{decision.strategy}] {decision.direction} {symbol} {timeframe}\n"
+                f"explain={decision.explain}"
             )
             transport.send_text(chat_id=user_id, text=text)
 

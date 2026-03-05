@@ -11,16 +11,17 @@ def c(o, h, l, c_):
 class TestLiquiditySweepReversal(unittest.TestCase):
     def test_buy_after_sweep_below_prev_low(self) -> None:
         s = LiquiditySweepReversalStrategy()
-        self.assertIsNone(s.on_candle(c(10, 12, 9, 10.5)))
+        self.assertEqual(s.on_candle(c(10, 12, 9, 10.5)).action, "skip")
         sig = s.on_candle(c(10, 11, 8.5, 10.8))
-        self.assertIsNotNone(sig)
+        self.assertEqual(sig.action, "entry")
         self.assertEqual(sig.direction, "BUY")
+        self.assertTrue(sig.explain)
 
     def test_sell_after_sweep_above_prev_high(self) -> None:
         s = LiquiditySweepReversalStrategy()
-        self.assertIsNone(s.on_candle(c(10, 12, 9, 11.5)))
+        self.assertEqual(s.on_candle(c(10, 12, 9, 11.5)).action, "skip")
         sig = s.on_candle(c(11.5, 12.6, 10.8, 11.0))
-        self.assertIsNotNone(sig)
+        self.assertEqual(sig.action, "entry")
         self.assertEqual(sig.direction, "SELL")
 
 

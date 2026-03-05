@@ -1,27 +1,41 @@
 from collections import deque
-from dataclasses import dataclass
-from typing import Deque, Optional
+from typing import Deque
 
 from core.data.models import Candle
-
-
-@dataclass
-class StrategySignal:
-    direction: str  # "BUY" | "SELL"
-    reason: str
+from core.strategies.signal import StrategyDecision
 
 
 class TrendPullbackStrategy:
     def __init__(self) -> None:
         self._closes: Deque[float] = deque(maxlen=3)
 
-    def on_candle(self, candle: Candle) -> Optional[StrategySignal]:
+    def on_candle(self, candle: Candle) -> StrategyDecision:
         self._closes.append(candle.close)
         if len(self._closes) < 3:
-            return None
-        a, b, c = self._closes  # oldest → newest
+            return StrategyDecision(
+                strategy="trend_pullback",
+                action="skip",
+                direction=None,
+                explain="Not enough candles: need 3 closes",
+            )
+        a, b, c = self._closes
         if c > b > a:
-            return StrategySignal(direction="BUY", reason="Three rising closes (trend resume)")
+            return StrategyDecision(
+                strategy="trend_pullback",
+                action="entry",
+                direction="BUY",
+                explain="Three rising closes (trend resume)",
+            )
         if c < b < a:
-            return StrategySignal(direction="SELL", reason="Three falling closes (trend resume)")
-        return None
+            return StrategyDecision(
+                strategy="trend_pullback",
+                action="entry",
+                direction="SELL",
+                explain="Three falling closes (trend resume)",
+            )
+        return StrategyDecision(
+            strategy="trend_pullback",
+            action="skip",
+            direction=None,
+            explain="No monotonic close sequence",
+        )
