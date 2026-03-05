@@ -8,6 +8,8 @@ from typing import Awaitable
 from typing import Callable
 from typing import Protocol
 
+from core.data.candle_builder import TIMEFRAME_TO_MS
+from core.data.models import Candle
 from core.data.models import Tick
 from core.data.rest_client import MultiExchangeHistoricalData
 
@@ -67,21 +69,29 @@ class HyperliquidWsClient:
         timeframe: str = "1m",
         parser: HyperliquidWebSocketParser | None = None,
         on_tick: Callable[[Tick], None | Awaitable[None]] | None = None,
+        on_backfill: Callable[[list[Candle]], None | Awaitable[None]] | None = None,
+        rest_data: MultiExchangeHistoricalData | None = None,
         ws_url: str = "wss://api.hyperliquid.xyz/ws",
         connector: WsConnector | None = None,
         reconnect_policy: ReconnectPolicy | None = None,
         heartbeat_timeout_sec: float = 20.0,
         sleeper: Callable[[float], Awaitable[None]] = asyncio.sleep,
+        clock_ms: Callable[[], int] | None = None,
     ) -> None:
         self.symbol = symbol
         self.timeframe = timeframe
         self.parser = parser or HyperliquidWebSocketParser()
         self.on_tick = on_tick
+        self.on_backfill = on_backfill
+        self.rest_data = rest_data or MultiExchangeHistoricalData()
         self.ws_url = ws_url
         self.connector = connector or default_ws_connector
         self.reconnect_policy = reconnect_policy or ReconnectPolicy()
         self.heartbeat_timeout_sec = heartbeat_timeout_sec
         self.sleeper = sleeper
+        self.clock_ms = clock_ms or _now_ms
+        self._timeframe_ms = TIMEFRAME_TO_MS.get(self.timeframe, 60_000)
+        self._last_tick_timestamp_ms: int | None = None
         self._stop_requested = False
 
     def request_stop(self) -> None:
@@ -93,7 +103,10 @@ class HyperliquidWsClient:
         while not self._stop_requested:
             try:
                 connection = await self.connector(self.ws_url)
+                needs_backfill = reconnect_attempt > 0
                 reconnect_attempt = 0
+                if needs_backfill:
+                    await self._restore_gap_with_rest()
                 remaining = None if max_messages is None else max(0, max_messages - total_processed)
                 processed = await self._consume_connection(connection, remaining_limit=remaining)
                 total_processed += processed
@@ -123,10 +136,14 @@ class HyperliquidWsClient:
             while not self._stop_requested:
                 if remaining_limit is not None and processed >= remaining_limit:
                     return processed
-                raw_message = await asyncio.wait_for(connection.recv(), timeout=self.heartbeat_timeout_sec)
+                try:
+                    raw_message = await asyncio.wait_for(connection.recv(), timeout=self.heartbeat_timeout_sec)
+                except Exception:
+                    return processed
                 tick = self.parser.parse_tick(raw_message, symbol=self.symbol)
                 if tick is None:
                     continue
+                self._last_tick_timestamp_ms = tick.timestamp_ms
                 await self._emit_tick(tick)
                 processed += 1
         finally:
@@ -154,6 +171,35 @@ class HyperliquidWsClient:
         result = self.on_tick(tick)
         if inspect.isawaitable(result):
             await result
+
+    async def _emit_backfill(self, candles: list[Candle]) -> None:
+        if self.on_backfill is None:
+            return
+        result = self.on_backfill(candles)
+        if inspect.isawaitable(result):
+            await result
+
+    async def _restore_gap_with_rest(self) -> None:
+        if self._last_tick_timestamp_ms is None:
+            return
+        limit = self._estimate_backfill_limit()
+        if limit <= 0:
+            return
+        candles = self.rest_data.fetch_with_fallback(symbol=self.symbol, timeframe=self.timeframe, limit=limit)
+        filtered = [candle for candle in candles if candle.open_time_ms > self._last_tick_timestamp_ms]
+        if not filtered:
+            return
+        await self._emit_backfill(filtered)
+        self._last_tick_timestamp_ms = max(self._last_tick_timestamp_ms, filtered[-1].close_time_ms)
+
+    def _estimate_backfill_limit(self) -> int:
+        if self._last_tick_timestamp_ms is None:
+            return 0
+        gap_ms = self.clock_ms() - self._last_tick_timestamp_ms
+        if gap_ms <= self._timeframe_ms:
+            return 0
+        candle_count = (gap_ms // self._timeframe_ms) + 2
+        return int(max(1, min(500, candle_count)))
 
 
 class LiveDataOrchestrator:
@@ -200,3 +246,7 @@ async def default_ws_connector(url: str) -> WsConnectionProtocol:
     except ImportError as exc:
         raise RuntimeError("websockets library is required for live ws runtime") from exc
     return await websockets.connect(url, ping_interval=None)
+
+
+def _now_ms() -> int:
+    return int(time.time() * 1000)

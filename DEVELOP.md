@@ -205,6 +205,17 @@ Commit: `028d465`
 Результат: Подэтап `E1.1` завершен, контур live WS ingestion готов для подключения REST восстановления пропусков на уровне рантайма (`E1.2`).  
 Commit: `1c8bf37`
 
+Дата/время (UTC): 2026-03-05  
+Подэтап: `E1.2`  
+Что сделано: Интегрировано REST-восстановление пропусков в рантайм WS-клиента после реконнекта.  
+Какие файлы изменены: `core/data/websocket_client.py`, `tests/test_ws_runtime.py`, `DEVELOP.md`  
+Реализованная логика: В `HyperliquidWsClient` добавлены `rest_data`, `on_backfill` и механизм backfill на реконнекте; реализована оценка окна пропуска по таймфрейму, фильтрация восстановленных свечей по timestamp и доставка backfill-пакета через callback перед продолжением live-потока.  
+Команды: `python -m unittest tests.test_ws_runtime -v`, `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot tests.test_candle_builder tests.test_data_quality tests.test_data_fallback tests.test_ws_runtime -v`, `git add DEVELOP.md core/data/websocket_client.py tests/test_ws_runtime.py`, `git commit -m <сообщение>`  
+Тесты: Прогнаны 21 unit-тест, все успешны; добавлен тест сценария восстановления пропуска после реконнекта с проверкой вызова REST backfill и фильтрации свечей.  
+Как проверено: Подтверждена корректность восстановления gap-данных и отсутствие регрессий по всем ранее реализованным модулям.  
+Результат: Подэтап `E1.2` завершен, WS-рантайм теперь восстанавливает пропуски через REST и готов к расширению источников данных.  
+Commit: будет добавлен после фиксации изменений в git.
+
 ---
 
 ## 5) TODO после MVP (согласовано)

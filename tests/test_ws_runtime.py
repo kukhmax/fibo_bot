@@ -2,6 +2,7 @@ import asyncio
 import json
 import unittest
 
+from core.data import Candle
 from core.data import HyperliquidWsClient
 from core.data import ReconnectPolicy
 
@@ -28,6 +29,16 @@ class _FakeConnection:
 
     async def close(self) -> None:
         self.closed = True
+
+
+class _FakeRestData:
+    def __init__(self, candles: list[Candle]) -> None:
+        self.candles = candles
+        self.calls: list[dict] = []
+
+    def fetch_with_fallback(self, symbol: str, timeframe: str, limit: int = 200):
+        self.calls.append({"symbol": symbol, "timeframe": timeframe, "limit": limit})
+        return list(self.candles)
 
 
 class TestWsRuntime(unittest.IsolatedAsyncioTestCase):
@@ -123,6 +134,40 @@ class TestWsRuntime(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(processed, 1)
         self.assertEqual(len(received_ticks), 1)
         self.assertEqual(delays, [0.1])
+
+    async def test_rest_backfill_after_reconnect(self) -> None:
+        received_ticks = []
+        received_backfill: list[list[Candle]] = []
+        first = _FakeConnection(['{"data":{"t":1000,"p":"100.0","v":"0.1"}}'])
+        second = _FakeConnection(['{"data":{"t":130000,"p":"103.0","v":"0.3"}}'])
+        sequence = [first, second]
+        rest_data = _FakeRestData(
+            [
+                Candle("BTC", "1m", 0, 59_999, 99, 101, 98, 100, 1),
+                Candle("BTC", "1m", 60_000, 119_999, 100, 102, 99, 101, 2),
+            ]
+        )
+
+        async def connector(_: str):
+            return sequence.pop(0)
+
+        client = HyperliquidWsClient(
+            symbol="BTC",
+            timeframe="1m",
+            on_tick=lambda tick: received_ticks.append(tick),
+            on_backfill=lambda candles: received_backfill.append(candles),
+            rest_data=rest_data,
+            connector=connector,
+            reconnect_policy=ReconnectPolicy(initial_delay_sec=0, max_delay_sec=0, jitter_sec=0, max_attempts=3),
+            clock_ms=lambda: 130_000,
+        )
+        processed = await client.run(max_messages=2)
+
+        self.assertEqual(processed, 2)
+        self.assertEqual(len(received_ticks), 2)
+        self.assertEqual(len(rest_data.calls), 1)
+        self.assertEqual(len(received_backfill), 1)
+        self.assertEqual(received_backfill[0][0].open_time_ms, 60_000)
 
 
 if __name__ == "__main__":
