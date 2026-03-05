@@ -10,7 +10,7 @@ from core.bot.runtime import TelegramBotRuntime
 from core.bot.telegram_transport import TelegramApiTransport
 from core.bot.profile import TelegramUserProfileStore
 from core.data.pipeline import RealtimeCandlePipeline
-from core.strategies import TrendPullbackStrategy
+from core.strategies import TrendPullbackStrategy, VolatilityBreakoutStrategy, LiquiditySweepReversalStrategy
 from core.config import load_environment_config
 from core.config import load_runtime_secrets
 
@@ -78,7 +78,13 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
         return
     symbol = os.getenv("FIB_SYMBOL", "BTCUSDT")
     timeframe = config_env.exchange.default_timeframe
-    strategy = TrendPullbackStrategy()
+    strategy_name = os.getenv("FIB_STRATEGY", "trend_pullback").strip().lower()
+    if strategy_name == "volatility_breakout":
+        strategy = VolatilityBreakoutStrategy()
+    elif strategy_name == "liquidity_sweep":
+        strategy = LiquiditySweepReversalStrategy()
+    else:
+        strategy = TrendPullbackStrategy()
 
     async def on_candle(candle):
         signal = strategy.on_candle(candle)
