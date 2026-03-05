@@ -1,0 +1,22 @@
+{
+  "environment": "test",
+  "exchange": {
+    "primary": "hyperliquid",
+    "backup": "mexc",
+    "default_timeframe": "5m"
+  },
+  "bot": {
+    "mode": "signal_only",
+    "access_mode": "notify_only",
+    "position_report_minutes": 60
+  },
+  "risk": {
+    "risk_per_trade_pct": 1.0,
+    "max_daily_drawdown_pct": 5.0,
+    "pause_until_utc_hour": 0
+  },
+  "ml": {
+    "enabled": true,
+    "historical_analysis_enabled": true
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "environment": "paper",
+  "exchange": {
+    "primary": "hyperliquid",
+    "backup": "mexc",
+    "default_timeframe": "5m"
+  },
+  "bot": {
+    "mode": "paper",
+    "access_mode": "full_access",
+    "position_report_minutes": 60
+  },
+  "risk": {
+    "risk_per_trade_pct": 2.0,
+    "max_daily_drawdown_pct": 10.0,
+    "pause_until_utc_hour": 0
+  },
+  "ml": {
+    "enabled": true,
+    "historical_analysis_enabled": true
+  }
+}
