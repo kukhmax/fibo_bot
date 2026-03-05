@@ -249,6 +249,17 @@ Commit: `5d4b554`
 Результат: Подэтап `E1.5` завершен, runtime-контроль качества данных готов к использованию в алертинге и risk-контуре.  
 Commit: `962055e`
 
+Дата/время (UTC): 2026-03-05  
+Подэтап: `E1.6`  
+Что сделано: Реализован persistence-слой с кэшем состояния и локальной историей свечей для бэктеста.  
+Какие файлы изменены: `core/data/persistence.py`, `core/data/pipeline.py`, `core/data/__init__.py`, `core/backtest/history.py`, `core/backtest/__init__.py`, `tests/test_persistence.py`, `tests/test_realtime_candle_pipeline.py`, `DEVELOP.md`  
+Реализованная логика: Добавлены `StateCache` и `LocalCandleHistory`; `RealtimeCandlePipeline` сохраняет эмитированные свечи в локальную историю, кэширует `last_emitted_open_time_ms` и восстанавливает это состояние после рестарта; добавлен загрузчик локальной истории `load_local_backtest_candles` для backtest-контура.  
+Команды: `python -m unittest tests.test_persistence tests.test_realtime_candle_pipeline tests.test_data_quality -v`, `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot tests.test_candle_builder tests.test_data_quality tests.test_data_fallback tests.test_ws_runtime tests.test_realtime_candle_pipeline tests.test_mexc_ws_adapter tests.test_persistence -v`, `git add DEVELOP.md core/data/persistence.py core/data/pipeline.py core/data/__init__.py core/backtest/history.py core/backtest/__init__.py tests/test_persistence.py tests/test_realtime_candle_pipeline.py`, `git commit -m <сообщение>`  
+Тесты: Прогнано 35 unit-тестов, все успешны; добавлены проверки записи/чтения state cache, локальной истории, восстановления состояния pipeline и загрузки истории для backtest.  
+Как проверено: Подтверждена корректность persistence-контура и отсутствие регрессий в существующих data/ws/runtime модулях.  
+Результат: Подэтап `E1.6` завершен, кэш состояния и локальная история готовы для использования в backtest и восстановлении рантайма.  
+Commit: будет добавлен после фиксации изменений в git.
+
 ---
 
 ## 5) TODO после MVP (согласовано)

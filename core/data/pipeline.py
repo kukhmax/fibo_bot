@@ -6,6 +6,8 @@ from core.data.candle_builder import CandleBuilder
 from core.data.models import Candle
 from core.data.models import DataQualityReport
 from core.data.models import Tick
+from core.data.persistence import LocalCandleHistory
+from core.data.persistence import StateCache
 from core.data.quality import RuntimeDataQualityMonitor
 from core.data.websocket_client import HyperliquidWsClient
 from core.data.websocket_client import MexcWsClient
@@ -24,6 +26,8 @@ class RealtimeCandlePipeline:
         ws_client: WsRuntimeProtocol | None = None,
         backup_ws_client: WsRuntimeProtocol | None = None,
         quality_monitor: RuntimeDataQualityMonitor | None = None,
+        state_cache: StateCache | None = None,
+        local_history: LocalCandleHistory | None = None,
     ) -> None:
         self.symbol = symbol
         self.timeframe = timeframe
@@ -32,7 +36,11 @@ class RealtimeCandlePipeline:
         self.on_quality = on_quality
         self._builder = CandleBuilder(symbol=symbol, timeframe=timeframe)
         self._quality_monitor = quality_monitor or RuntimeDataQualityMonitor(symbol=symbol, timeframe=timeframe)
-        self._last_emitted_open_time_ms: int | None = None
+        self._state_cache = state_cache or StateCache()
+        self._local_history = local_history or LocalCandleHistory()
+        self._state_key = f"{self.symbol}:{self.timeframe}:last_emitted_open_time_ms"
+        cached_value = self._state_cache.get(self._state_key)
+        self._last_emitted_open_time_ms: int | None = int(cached_value) if cached_value is not None else None
         if ws_client is not None:
             self._ws_client = ws_client
         else:
@@ -85,7 +93,9 @@ class RealtimeCandlePipeline:
     async def _emit_candle(self, candle: Candle) -> None:
         if self._last_emitted_open_time_ms is not None and candle.open_time_ms <= self._last_emitted_open_time_ms:
             return
+        self._local_history.append(candle)
         self._last_emitted_open_time_ms = candle.open_time_ms
+        self._state_cache.set(self._state_key, self._last_emitted_open_time_ms)
         report = self._quality_monitor.evaluate_candle(candle)
         await self._emit_quality_if_needed(report)
         if self.on_candle is None:

@@ -1,20 +1,41 @@
+from pathlib import Path
+import tempfile
 import unittest
 
 from core.data import Candle
+from core.data import LocalCandleHistory
 from core.data import RealtimeCandlePipeline
 from core.data import RuntimeDataQualityMonitor
+from core.data import StateCache
 from core.data import Tick
 
 
 class TestRealtimeCandlePipeline(unittest.IsolatedAsyncioTestCase):
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def _make_pipeline(self, **kwargs) -> RealtimeCandlePipeline:
+        root = Path(self._tmp.name)
+        state_cache = StateCache(root / "state_cache.json")
+        history = LocalCandleHistory(root / "history")
+        return RealtimeCandlePipeline(
+            symbol="BTC",
+            state_cache=state_cache,
+            local_history=history,
+            **kwargs,
+        )
+
     async def test_default_timeframe_is_5m(self) -> None:
         emitted: list[Candle] = []
-        pipeline = RealtimeCandlePipeline(symbol="BTC", on_candle=lambda candle: emitted.append(candle))
+        pipeline = self._make_pipeline(on_candle=lambda candle: emitted.append(candle))
         self.assertEqual(pipeline.timeframe, "5m")
 
     async def test_emits_closed_candle_for_5m(self) -> None:
         emitted: list[Candle] = []
-        pipeline = RealtimeCandlePipeline(symbol="BTC", timeframe="5m", on_candle=lambda candle: emitted.append(candle))
+        pipeline = self._make_pipeline(timeframe="5m", on_candle=lambda candle: emitted.append(candle))
 
         await pipeline.process_tick(Tick(symbol="BTC", timestamp_ms=1_000, price=100.0, volume=1.0))
         await pipeline.process_tick(Tick(symbol="BTC", timestamp_ms=301_000, price=101.0, volume=0.5))
@@ -26,7 +47,7 @@ class TestRealtimeCandlePipeline(unittest.IsolatedAsyncioTestCase):
 
     async def test_accepts_configurable_timeframe(self) -> None:
         emitted: list[Candle] = []
-        pipeline = RealtimeCandlePipeline(symbol="BTC", timeframe="1m", on_candle=lambda candle: emitted.append(candle))
+        pipeline = self._make_pipeline(timeframe="1m", on_candle=lambda candle: emitted.append(candle))
 
         await pipeline.process_tick(Tick(symbol="BTC", timestamp_ms=1_000, price=100.0, volume=1.0))
         await pipeline.process_tick(Tick(symbol="BTC", timestamp_ms=61_000, price=101.0, volume=0.2))
@@ -36,7 +57,7 @@ class TestRealtimeCandlePipeline(unittest.IsolatedAsyncioTestCase):
 
     async def test_backfill_skips_duplicates(self) -> None:
         emitted: list[Candle] = []
-        pipeline = RealtimeCandlePipeline(symbol="BTC", timeframe="1m", on_candle=lambda candle: emitted.append(candle))
+        pipeline = self._make_pipeline(timeframe="1m", on_candle=lambda candle: emitted.append(candle))
 
         await pipeline.process_tick(Tick(symbol="BTC", timestamp_ms=1_000, price=100.0, volume=1.0))
         await pipeline.process_tick(Tick(symbol="BTC", timestamp_ms=61_000, price=101.0, volume=0.2))
@@ -58,8 +79,7 @@ class TestRealtimeCandlePipeline(unittest.IsolatedAsyncioTestCase):
             max_timestamp_drift_ms=1_000,
             clock_ms=lambda: 10_000,
         )
-        pipeline = RealtimeCandlePipeline(
-            symbol="BTC",
+        pipeline = self._make_pipeline(
             timeframe="1m",
             on_quality=lambda report: quality_reports.append(report),
             quality_monitor=monitor,

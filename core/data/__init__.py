@@ -3,6 +3,8 @@ from core.data.models import Candle
 from core.data.models import DataQualityReport
 from core.data.models import Tick
 from core.data.pipeline import RealtimeCandlePipeline
+from core.data.persistence import LocalCandleHistory
+from core.data.persistence import StateCache
 from core.data.quality import RuntimeDataQualityMonitor
 from core.data.quality import validate_candle_sequence
 from core.data.rest_client import HyperliquidRestClient
@@ -23,6 +25,8 @@ __all__ = [
     "DataQualityReport",
     "RealtimeCandlePipeline",
     "CandleBuilder",
+    "StateCache",
+    "LocalCandleHistory",
     "RuntimeDataQualityMonitor",
     "validate_candle_sequence",
     "HyperliquidRestClient",
