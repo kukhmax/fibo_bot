@@ -1,6 +1,7 @@
 from pathlib import Path
 import tempfile
 import unittest
+from dataclasses import replace as dc_replace
 
 from core.bot import CommandContext
 from core.bot import CommandRouter
@@ -120,6 +121,17 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/set_risk 9"))
         self.assertIn("Ошибка обновления профиля", result.response_text)
         self.assertIn("risk должен быть в диапазоне 0.1..2.0", result.response_text)
+
+    async def test_notify_only_access_blocks_updates(self) -> None:
+        config = load_environment_config("dev")
+        config = dc_replace(config, bot=dc_replace(config.bot, access_mode="notify_only"))
+        router = build_default_router(config, profile_store=self._store)
+        blocked_mode = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/mode paper"))
+        blocked_risk = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/set_risk 1.2"))
+        status = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/status"))
+        self.assertIn("notify_only", blocked_mode.response_text)
+        self.assertIn("notify_only", blocked_risk.response_text)
+        self.assertIn("mode=signal_only", status.response_text)
 
     async def test_runtime_fetches_updates_and_sends_responses(self) -> None:
         config = load_environment_config("dev")

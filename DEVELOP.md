@@ -317,6 +317,19 @@ Commit: `5ade3c8`
 
 ---
 
+Дата/время (UTC): 2026-03-05  
+Подэтап: `E2.4`  
+Что сделано: Внедрен режим доступа `notify_only`: любые команды изменения профиля (`/start` с аргументами, `/mode`, `/set_tf`, `/set_risk`) блокируются, ответы содержат уведомление о режиме.  
+Какие файлы изменены: `core/bot/commands.py`, `tests/test_bot_router.py`, `DEVELOP.md`  
+Реализованная логика: Добавлена проверка `access_mode` из окруженческого конфига; при значении `notify_only` все write-команды возвращают информативное сообщение и не изменяют сохранённый профиль.  
+Команды: `python -m unittest tests.test_bot_router -v`, `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot tests.test_candle_builder tests.test_data_quality tests.test_data_fallback tests.test_ws_runtime tests.test_realtime_candle_pipeline tests.test_mexc_ws_adapter tests.test_persistence tests.test_bot_router tests.test_bot_profile_store tests.test_telegram_transport -v`, `git add DEVELOP.md core/bot/commands.py tests/test_bot_router.py`, `git commit -m <сообщение>`  
+Тесты: Прогнано 50 unit-тестов, все успешны; добавлена проверка блокировки обновлений профиля в режиме `notify_only`.  
+Как проверено: Убедились, что настройки не меняются и статус отражает исходные значения при `notify_only`.  
+Результат: Подэтап `E2.4` завершен, ограничение на изменение настроек действует согласно конфигурации доступа.  
+Commit: будет добавлен после фиксации изменений в git.
+
+---
+
 ## 5) TODO после MVP (согласовано)
 
 - Добавить whitelist активов по ликвидности и спреду.

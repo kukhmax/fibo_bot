@@ -27,6 +27,13 @@ def build_default_router(
     def start_handler(ctx: CommandContext, args: str) -> str:
         profile = store.get_or_create(ctx.user_id, config)
         if args.strip():
+            if not _access_write_allowed(config):
+                return (
+                    "Режим доступа notify_only: изменение настроек запрещено.\n"
+                    f"Текущий профиль: mode={profile.mode} exchange={profile.exchange} "
+                    f"timeframe={profile.timeframe} risk={profile.risk_per_trade_pct} "
+                    f"report={profile.position_report_minutes}"
+                )
             updated, errors = _apply_start_updates(profile, args)
             if errors:
                 return _format_profile_error(profile, errors)
@@ -53,6 +60,8 @@ def build_default_router(
         raw_mode = args.strip().lower()
         if not raw_mode:
             return f"Текущий mode={profile.mode}. Использование: /mode <signal_only|paper|live>"
+        if not _access_write_allowed(config):
+            return "Режим доступа notify_only: команда недоступна."
         errors: list[str] = []
         mode = _parse_mode(raw_mode, errors)
         if errors:
@@ -66,6 +75,8 @@ def build_default_router(
         raw_timeframe = args.strip().lower()
         if not raw_timeframe:
             return f"Текущий timeframe={profile.timeframe}. Использование: /set_tf <1m|5m|15m|1h|4h>"
+        if not _access_write_allowed(config):
+            return "Режим доступа notify_only: команда недоступна."
         errors: list[str] = []
         timeframe = _parse_timeframe(raw_timeframe, errors)
         if errors:
@@ -79,6 +90,8 @@ def build_default_router(
         raw_risk = args.strip()
         if not raw_risk:
             return f"Текущий risk={profile.risk_per_trade_pct}. Использование: /set_risk <0.1..2.0>"
+        if not _access_write_allowed(config):
+            return "Режим доступа notify_only: команда недоступна."
         errors: list[str] = []
         risk = _parse_risk(raw_risk, errors)
         if errors:
@@ -177,6 +190,10 @@ def _parse_risk(raw: str, errors: list[str]) -> float:
     if value < 0.1 or value > 2:
         errors.append("risk должен быть в диапазоне 0.1..2.0")
     return value
+
+
+def _access_write_allowed(config: EnvironmentConfig) -> bool:
+    return config.bot.access_mode.strip().lower() == "full_access"
 
 
 def _parse_report_minutes(raw: str, errors: list[str]) -> int:
