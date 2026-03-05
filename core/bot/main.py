@@ -8,6 +8,7 @@ from core.bot.commands import build_default_router
 from core.bot.health import health_snapshot_dict
 from core.bot.runtime import TelegramBotRuntime
 from core.bot.telegram_transport import TelegramApiTransport
+from core.bot.profile import TelegramUserProfileStore
 from core.config import load_environment_config
 from core.config import load_runtime_secrets
 
@@ -16,7 +17,8 @@ def run(once: bool = False, print_commands: bool = False) -> None:
     app_env = os.getenv("APP_ENV", "dev")
     config = load_environment_config(app_env)
     secrets = load_runtime_secrets()
-    router = build_default_router(config)
+    store = TelegramUserProfileStore()
+    router = build_default_router(config, profile_store=store)
 
     print(
         f"fib_bot app started env={config.environment} mode={config.bot.mode} "
@@ -32,6 +34,7 @@ def run(once: bool = False, print_commands: bool = False) -> None:
     runtime = TelegramBotRuntime(
         router=router,
         transport=TelegramApiTransport(bot_token=secrets.telegram_bot_token),
+        profile_store=store,
     )
     asyncio.run(_run_runtime(runtime=runtime, once=once))
 

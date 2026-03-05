@@ -330,6 +330,19 @@ Commit: `4a3636c`
 
 ---
 
+Дата/время (UTC): 2026-03-05  
+Подэтап: `E2.5`  
+Что сделано: Реализован периодический отчет по позициям с интервалом из профиля пользователя (`position_report_minutes`, по умолчанию 60).  
+Какие файлы изменены: `core/bot/runtime.py`, `core/bot/reporter.py`, `core/bot/main.py`, `tests/test_reports_scheduler.py`, `DEVELOP.md`  
+Реализованная логика: В `TelegramBotRuntime.process_once` добавлен шедулер, который просматривает сохраненные профили и отправляет отчет при наступлении времени; состояние отправки хранится в `runtime/report_last_sent.json`, формирование текста отчета через `PositionReporter` (пока заглушка без реальных позиций).  
+Команды: `python -m unittest tests.test_reports_scheduler -v`, `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot tests.test_candle_builder tests.test_data_quality tests.test_data_fallback tests.test_ws_runtime tests.test_realtime_candle_pipeline tests.test_mexc_ws_adapter tests.test_persistence tests.test_bot_router tests.test_bot_profile_store tests.test_telegram_transport tests.test_reports_scheduler -v`, `git add DEVELOP.md core/bot/runtime.py core/bot/reporter.py core/bot/main.py tests/test_reports_scheduler.py`, `git commit -m <сообщение>`  
+Тесты: Прогнано 51 unit-тест, все успешны; добавлен тест на отправку отчета при наступлении срока.  
+Как проверено: Проверена отправка отчета без входящих апдейтов и отсутствие регрессий.  
+Результат: Подэтап `E2.5` завершен, отчеты рассылаются автоматически по заданному интервалу.  
+Commit: будет добавлен после фиксации изменений в git.
+
+---
+
 ## 5) TODO после MVP (согласовано)
 
 - Добавить whitelist активов по ликвидности и спреду.
