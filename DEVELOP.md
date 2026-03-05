@@ -446,6 +446,19 @@ Commit: `24222f4`
 
 ---
 
+Дата/время (UTC): 2026-03-05  
+Подэтап: `E4.1`  
+Что сделано: Реализован pipeline подготовки исторических свечей для обучения с объединением локальной истории и REST fallback.  
+Какие файлы изменены: `core/ml/history_pipeline.py`, `core/ml/__init__.py`, `tests/test_ml_history_pipeline.py`, `DEVELOP.md`  
+Реализованная логика: `HistoricalTrainingDataPipeline` загружает local history, при нехватке свечей добирает данные через `MultiExchangeHistoricalData.fetch_with_fallback`, объединяет ряды с дедупликацией по `open_time_ms` (локальные свечи имеют приоритет), сортирует и возвращает tail по `limit`.  
+Команды: `python -m unittest tests.test_ml_history_pipeline -v`, полный регресс `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot tests.test_candle_builder tests.test_data_quality tests.test_data_fallback tests.test_ws_runtime tests.test_realtime_candle_pipeline tests.test_mexc_ws_adapter tests.test_persistence tests.test_bot_router tests.test_bot_profile_store tests.test_telegram_transport tests.test_reports_scheduler tests.test_strategy_selector tests.test_strategy_trend_pullback tests.test_strategy_volatility_breakout tests.test_strategy_liquidity_sweep tests.test_regime_classifier tests.test_ml_history_pipeline -v`  
+Тесты: Прогнано 71 unit-тест, все успешны; добавлены тесты сценариев local-only, remote fallback + dedup и limit-tail.  
+Как проверено: Подтверждена корректная сборка train-history без дублей и отсутствие регрессий во всех существующих модулях.  
+Результат: Подэтап `E4.1` завершен, базовый источник исторических данных для обучения готов.  
+Commit: будет добавлен после фиксации изменений в git.
+
+---
+
 ## 5) TODO после MVP (согласовано)
 
 - Добавить whitelist активов по ликвидности и спреду.
