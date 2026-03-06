@@ -256,23 +256,80 @@ def build_default_router(
         profile = store.get_or_create(ctx.user_id, config)
         text = (
             "🛡 Меню риска\n"
-            "Выбери готовый пресет кнопкой.\n"
-            f"risk={profile.risk_per_trade_pct}\n"
-            f"rr={profile.rr_ratio}\n"
-            f"max_dd={profile.max_daily_drawdown_pct}\n"
-            f"max_pos={profile.max_open_positions}\n"
-            f"sl={profile.sl_pct}\n"
-            f"tp={profile.tp_pct}\n"
-            f"open_pos={profile.open_positions_count}\n"
-            "⬇️ Нажми на нужный параметр:"
+            f"🛡 Risk: {profile.risk_per_trade_pct}%\n"
+            f"🎯 RR: {profile.rr_ratio}\n"
+            f"🚫 DD: {profile.max_daily_drawdown_pct}%\n"
+            f"📦 MaxPos: {profile.max_open_positions}\n"
+            f"🧯 SL: {profile.sl_pct}%\n"
+            f"💰 TP: {profile.tp_pct}%\n"
+            "Выбери раздел настройки:"
         )
         inline = (
-            (("🛡 Риск 0.5%", "/set_risk 0.5"), ("🛡 Риск 1.0%", "/set_risk 1.0"), ("🛡 Риск 1.5%", "/set_risk 1.5")),
-            (("🎯 RR 1.5", "/set_rr 1.5"), ("🎯 RR 2.0", "/set_rr 2.0"), ("🎯 RR 2.5", "/set_rr 2.5")),
-            (("🚫 DD 5%", "/set_dd 5"), ("🚫 DD 8%", "/set_dd 8"), ("🚫 DD 10%", "/set_dd 10")),
-            (("📦 Макс 1", "/set_maxpos 1"), ("📦 Макс 2", "/set_maxpos 2"), ("📦 Макс 3", "/set_maxpos 3")),
-            (("🧯 SL 0.5%", "/set_sl 0.5"), ("💰 TP 1.0%", "/set_tp 1.0"), ("❌ Закрыть 1", "/close")),
+            (("🛡 Настроить Risk", "/risk_risk"), ("🎯 Настроить RR", "/risk_rr")),
+            (("🚫 Настроить DD", "/risk_dd"), ("📦 Лимит позиций", "/risk_limits")),
+            (("🧯 SL/TP", "/risk_sl_tp"), ("❌ Закрыть позицию", "/close")),
             (("🔄 Обновить", "/risk"), ("🏠 Главное меню", "/menu")),
+        )
+        return {"text": text, "inline_keyboard": inline}
+
+    def risk_risk_handler(ctx: CommandContext, __: str) -> dict:
+        profile = store.get_or_create(ctx.user_id, config)
+        text = (
+            "🛡 Настройка Risk на сделку\n"
+            f"Сейчас: {profile.risk_per_trade_pct}%\n"
+            "Рекомендация: 0.5% - 1.0% для спокойного режима."
+        )
+        inline = (
+            (("🛡 0.5%", "/set_risk 0.5"), ("🛡 1.0%", "/set_risk 1.0"), ("🛡 1.5%", "/set_risk 1.5")),
+            (("⬅️ Назад в риск-меню", "/risk"), ("🏠 Главное меню", "/menu")),
+        )
+        return {"text": text, "inline_keyboard": inline}
+
+    def risk_rr_handler(ctx: CommandContext, __: str) -> dict:
+        profile = store.get_or_create(ctx.user_id, config)
+        text = (
+            "🎯 Настройка Risk/Reward\n"
+            f"Сейчас: {profile.rr_ratio}\n"
+            "Чем выше RR, тем реже исполнение, но выше цель."
+        )
+        inline = (
+            (("🎯 1.5", "/set_rr 1.5"), ("🎯 2.0", "/set_rr 2.0"), ("🎯 2.5", "/set_rr 2.5")),
+            (("⬅️ Назад в риск-меню", "/risk"), ("🏠 Главное меню", "/menu")),
+        )
+        return {"text": text, "inline_keyboard": inline}
+
+    def risk_dd_handler(ctx: CommandContext, __: str) -> dict:
+        profile = store.get_or_create(ctx.user_id, config)
+        text = (
+            "🚫 Настройка дневной просадки (DD)\n"
+            f"Сейчас: {profile.max_daily_drawdown_pct}%\n"
+            "При превышении лимита новые входы блокируются до следующего UTC-дня."
+        )
+        inline = (
+            (("🚫 5%", "/set_dd 5"), ("🚫 8%", "/set_dd 8"), ("🚫 10%", "/set_dd 10")),
+            (("⬅️ Назад в риск-меню", "/risk"), ("🏠 Главное меню", "/menu")),
+        )
+        return {"text": text, "inline_keyboard": inline}
+
+    def risk_limits_handler(_: CommandContext, __: str) -> dict:
+        text = "📦 Лимит открытых позиций"
+        inline = (
+            (("📦 1", "/set_maxpos 1"), ("📦 2", "/set_maxpos 2"), ("📦 3", "/set_maxpos 3")),
+            (("⬅️ Назад в риск-меню", "/risk"), ("🏠 Главное меню", "/menu")),
+        )
+        return {"text": text, "inline_keyboard": inline}
+
+    def risk_sl_tp_handler(ctx: CommandContext, __: str) -> dict:
+        profile = store.get_or_create(ctx.user_id, config)
+        text = (
+            "🧯 Настройка SL/TP\n"
+            f"Сейчас SL: {profile.sl_pct}%\n"
+            f"Сейчас TP: {profile.tp_pct}%"
+        )
+        inline = (
+            (("🧯 SL 0.5%", "/set_sl 0.5"), ("🧯 SL 1.0%", "/set_sl 1.0")),
+            (("💰 TP 1.0%", "/set_tp 1.0"), ("💰 TP 2.0%", "/set_tp 2.0")),
+            (("⬅️ Назад в риск-меню", "/risk"), ("🏠 Главное меню", "/menu")),
         )
         return {"text": text, "inline_keyboard": inline}
 
@@ -384,6 +441,11 @@ def build_default_router(
     router.add_route("/ml_report", ml_report_handler)
     router.add_route("/readiness", readiness_handler)
     router.add_route("/risk", risk_menu_handler)
+    router.add_route("/risk_risk", risk_risk_handler)
+    router.add_route("/risk_rr", risk_rr_handler)
+    router.add_route("/risk_dd", risk_dd_handler)
+    router.add_route("/risk_limits", risk_limits_handler)
+    router.add_route("/risk_sl_tp", risk_sl_tp_handler)
     router.add_route("/backtest", backtest_handler)
     return router
 

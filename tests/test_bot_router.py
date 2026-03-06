@@ -187,13 +187,11 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(result.inline_keyboard)
         assert result.inline_keyboard is not None
         callbacks = [callback for row in result.inline_keyboard for (_text, callback) in row]
-        self.assertIn("/set_risk 1.0", callbacks)
-        self.assertIn("/set_rr 2.0", callbacks)
-        self.assertIn("/set_dd 10", callbacks)
-        self.assertIn("/set_maxpos 3", callbacks)
-        self.assertIn("/set_sl 0.5", callbacks)
-        self.assertIn("/set_tp 1.0", callbacks)
-        self.assertIn("/close", callbacks)
+        self.assertIn("/risk_risk", callbacks)
+        self.assertIn("/risk_rr", callbacks)
+        self.assertIn("/risk_dd", callbacks)
+        self.assertIn("/risk_limits", callbacks)
+        self.assertIn("/risk_sl_tp", callbacks)
 
     async def test_menu_has_human_friendly_buttons(self) -> None:
         config = load_environment_config("dev")
@@ -218,6 +216,20 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         callbacks = [callback for row in result.inline_keyboard for (_text, callback) in row]
         self.assertIn("/set_tf 1m", callbacks)
         self.assertIn("/set_tf 4h", callbacks)
+
+    async def test_risk_submenus_return_presets_and_back(self) -> None:
+        config = load_environment_config("dev")
+        router = build_default_router(config, profile_store=self._store)
+        risk_values = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/risk_risk"))
+        rr_values = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/risk_rr"))
+        dd_values = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/risk_dd"))
+        self.assertIn("Настройка Risk", risk_values.response_text)
+        self.assertIn("Настройка Risk/Reward", rr_values.response_text)
+        self.assertIn("Настройка дневной просадки", dd_values.response_text)
+        assert risk_values.inline_keyboard is not None
+        risk_callbacks = [callback for row in risk_values.inline_keyboard for (_text, callback) in row]
+        self.assertIn("/set_risk 1.0", risk_callbacks)
+        self.assertIn("/risk", risk_callbacks)
 
     async def test_readiness_reports_missing_secrets(self) -> None:
         config = load_environment_config("dev")
