@@ -150,6 +150,27 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         self.assertIn("max_pos обновлен: 3", maxpos_result.response_text)
         self.assertIn("max_pos=3", status_result.response_text)
 
+    async def test_set_sl_tp_commands_update_profile(self) -> None:
+        config = load_environment_config("dev")
+        router = build_default_router(config, profile_store=self._store)
+        sl_result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/set_sl 0.8"))
+        tp_result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/set_tp 1.6"))
+        status_result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/status"))
+        self.assertIn("sl обновлен: 0.8", sl_result.response_text)
+        self.assertIn("tp обновлен: 1.6", tp_result.response_text)
+        self.assertIn("sl=0.8", status_result.response_text)
+        self.assertIn("tp=1.6", status_result.response_text)
+
+    async def test_close_command_decrements_open_positions(self) -> None:
+        config = load_environment_config("dev")
+        profile = self._store.get_or_create(42, config)
+        self._store.save(dc_replace(profile, open_positions_count=2))
+        router = build_default_router(config, profile_store=self._store)
+        close_result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/close"))
+        status_result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/status"))
+        self.assertIn("Позиция закрыта", close_result.response_text)
+        self.assertIn("open_pos=1", status_result.response_text)
+
     async def test_risk_menu_returns_inline_keyboard(self) -> None:
         config = load_environment_config("dev")
         router = build_default_router(config, profile_store=self._store)
@@ -163,6 +184,9 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         self.assertIn("/set_rr 2.0", callbacks)
         self.assertIn("/set_dd 10", callbacks)
         self.assertIn("/set_maxpos 3", callbacks)
+        self.assertIn("/set_sl 0.5", callbacks)
+        self.assertIn("/set_tp 1.0", callbacks)
+        self.assertIn("/close", callbacks)
 
     async def test_notify_only_access_blocks_updates(self) -> None:
         config = load_environment_config("dev")

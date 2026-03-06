@@ -194,6 +194,9 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
                 f"explain={decision.explain}"
             )
             transport.send_text(chat_id=user_id, text=text)
+            if mode == "paper":
+                payload["open_positions_count"] = min(max_open_positions, open_positions_count + 1)
+                store._cache.set(key, payload)
 
     pipeline = RealtimeCandlePipeline(symbol=symbol, timeframe=timeframe, on_candle=on_candle)
 

@@ -20,6 +20,7 @@ COMMAND_KEYBOARD: tuple[tuple[str, ...], ...] = (
     ("/set_rr 1.5", "/set_rr 2.0"),
     ("/set_dd 5", "/set_dd 10"),
     ("/set_maxpos 1", "/set_maxpos 2", "/set_maxpos 3"),
+    ("/set_sl 0.5", "/set_tp 1.0", "/close"),
     ("/positions", "/ml_report", "/risk"),
 )
 RISK_MANAGER = RiskManager()
@@ -45,6 +46,7 @@ def build_default_router(
                     f"timeframe={profile.timeframe} risk={profile.risk_per_trade_pct} "
                     f"rr={profile.rr_ratio} max_dd={profile.max_daily_drawdown_pct} "
                     f"max_pos={profile.max_open_positions} "
+                    f"sl={profile.sl_pct} tp={profile.tp_pct} open_pos={profile.open_positions_count} "
                     f"report={profile.position_report_minutes}"
                 )
             updated, errors = _apply_start_updates(profile, args)
@@ -62,9 +64,12 @@ def build_default_router(
             f"rr={profile.rr_ratio}\n"
             f"max_dd={profile.max_daily_drawdown_pct}\n"
             f"max_pos={profile.max_open_positions}\n"
+            f"sl={profile.sl_pct}\n"
+            f"tp={profile.tp_pct}\n"
+            f"open_pos={profile.open_positions_count}\n"
             f"report={profile.position_report_minutes}\n"
             "Для изменения профиля: /start mode=<signal_only|paper|live> "
-            "exchange=<hyperliquid|mexc> timeframe=<1m|5m|15m|1h|4h> risk=<0.1..2.0> rr=<1.0..5.0> dd=<1..10> maxpos=<1..10> report=<5..1440>"
+            "exchange=<hyperliquid|mexc> timeframe=<1m|5m|15m|1h|4h> risk=<0.1..2.0> rr=<1.0..5.0> dd=<1..10> maxpos=<1..10> sl=<0.1..20> tp=<0.1..50> report=<5..1440>"
         )
 
     def help_handler(_: CommandContext, __: str) -> str:
@@ -161,6 +166,46 @@ def build_default_router(
         store.save(updated)
         return f"max_pos обновлен: {updated.max_open_positions}"
 
+    def set_sl_handler(ctx: CommandContext, args: str) -> str:
+        profile = store.get_or_create(ctx.user_id, config)
+        raw_sl = args.strip()
+        if not raw_sl:
+            return f"Текущий sl={profile.sl_pct}. Использование: /set_sl <0.1..20>"
+        if not _access_write_allowed(config):
+            return "Режим доступа notify_only: команда недоступна."
+        errors: list[str] = []
+        sl = _parse_sl_pct(raw_sl, errors)
+        if errors:
+            return _format_profile_error(profile, errors)
+        updated = replace(profile, sl_pct=sl)
+        store.save(updated)
+        return f"sl обновлен: {updated.sl_pct}"
+
+    def set_tp_handler(ctx: CommandContext, args: str) -> str:
+        profile = store.get_or_create(ctx.user_id, config)
+        raw_tp = args.strip()
+        if not raw_tp:
+            return f"Текущий tp={profile.tp_pct}. Использование: /set_tp <0.1..50>"
+        if not _access_write_allowed(config):
+            return "Режим доступа notify_only: команда недоступна."
+        errors: list[str] = []
+        tp = _parse_tp_pct(raw_tp, errors)
+        if errors:
+            return _format_profile_error(profile, errors)
+        updated = replace(profile, tp_pct=tp)
+        store.save(updated)
+        return f"tp обновлен: {updated.tp_pct}"
+
+    def close_handler(ctx: CommandContext, __: str) -> str:
+        profile = store.get_or_create(ctx.user_id, config)
+        if not _access_write_allowed(config):
+            return "Режим доступа notify_only: команда недоступна."
+        if profile.open_positions_count <= 0:
+            return "Нет открытых позиций для закрытия."
+        updated = replace(profile, open_positions_count=max(0, profile.open_positions_count - 1))
+        store.save(updated)
+        return f"Позиция закрыта. Открытых позиций: {updated.open_positions_count}"
+
     def status_handler(ctx: CommandContext, __: str) -> str:
         profile = store.get_or_create(ctx.user_id, config)
         return (
@@ -173,6 +218,9 @@ def build_default_router(
             f"rr={profile.rr_ratio}\n"
             f"max_dd={profile.max_daily_drawdown_pct}\n"
             f"max_pos={profile.max_open_positions}\n"
+            f"sl={profile.sl_pct}\n"
+            f"tp={profile.tp_pct}\n"
+            f"open_pos={profile.open_positions_count}\n"
             f"report_interval_min={profile.position_report_minutes}"
         )
 
@@ -193,6 +241,9 @@ def build_default_router(
             f"rr={profile.rr_ratio}\n"
             f"max_dd={profile.max_daily_drawdown_pct}\n"
             f"max_pos={profile.max_open_positions}\n"
+            f"sl={profile.sl_pct}\n"
+            f"tp={profile.tp_pct}\n"
+            f"open_pos={profile.open_positions_count}\n"
             "Выбери быстрый пресет:"
         )
         inline = (
@@ -200,6 +251,7 @@ def build_default_router(
             (("RR 1.5", "/set_rr 1.5"), ("RR 2.0", "/set_rr 2.0"), ("RR 2.5", "/set_rr 2.5")),
             (("DD 5%", "/set_dd 5"), ("DD 8%", "/set_dd 8"), ("DD 10%", "/set_dd 10")),
             (("MaxPos 1", "/set_maxpos 1"), ("MaxPos 2", "/set_maxpos 2"), ("MaxPos 3", "/set_maxpos 3")),
+            (("SL 0.5%", "/set_sl 0.5"), ("TP 1.0%", "/set_tp 1.0"), ("Close 1", "/close")),
             (("Обновить", "/risk"),),
         )
         return {"text": text, "inline_keyboard": inline}
@@ -212,6 +264,9 @@ def build_default_router(
     router.add_route("/set_rr", set_rr_handler)
     router.add_route("/set_dd", set_dd_handler)
     router.add_route("/set_maxpos", set_maxpos_handler)
+    router.add_route("/set_sl", set_sl_handler)
+    router.add_route("/set_tp", set_tp_handler)
+    router.add_route("/close", close_handler)
     router.add_route("/status", status_handler)
     router.add_route("/positions", positions_handler)
     router.add_route("/ml_report", ml_report_handler)
@@ -231,6 +286,8 @@ def _apply_start_updates(
         "rr": str(profile.rr_ratio),
         "dd": str(profile.max_daily_drawdown_pct),
         "maxpos": str(profile.max_open_positions),
+        "sl": str(profile.sl_pct),
+        "tp": str(profile.tp_pct),
         "report": str(profile.position_report_minutes),
     }
     errors: list[str] = []
@@ -255,6 +312,8 @@ def _apply_start_updates(
     rr_value = _parse_rr(values["rr"], errors)
     dd_value = _parse_max_daily_drawdown(values["dd"], errors)
     max_pos_value = _parse_max_open_positions(values["maxpos"], errors)
+    sl_value = _parse_sl_pct(values["sl"], errors)
+    tp_value = _parse_tp_pct(values["tp"], errors)
     report_value = _parse_report_minutes(values["report"], errors)
     if errors:
         return profile, errors
@@ -268,6 +327,9 @@ def _apply_start_updates(
             rr_ratio=rr_value,
             max_daily_drawdown_pct=dd_value,
             max_open_positions=max_pos_value,
+            sl_pct=sl_value,
+            tp_pct=tp_value,
+            open_positions_count=profile.open_positions_count,
             position_report_minutes=report_value,
         ),
         [],
@@ -333,6 +395,28 @@ def _parse_max_open_positions(raw: str, errors: list[str]) -> int:
     return value
 
 
+def _parse_sl_pct(raw: str, errors: list[str]) -> float:
+    try:
+        value = float(raw)
+    except ValueError:
+        errors.append("sl должен быть числом")
+        return 0.0
+    if value < 0.1 or value > 20:
+        errors.append("sl должен быть в диапазоне 0.1..20")
+    return value
+
+
+def _parse_tp_pct(raw: str, errors: list[str]) -> float:
+    try:
+        value = float(raw)
+    except ValueError:
+        errors.append("tp должен быть числом")
+        return 0.0
+    if value < 0.1 or value > 50:
+        errors.append("tp должен быть в диапазоне 0.1..50")
+    return value
+
+
 def _access_write_allowed(config: EnvironmentConfig) -> bool:
     return config.bot.access_mode.strip().lower() == "full_access"
 
@@ -356,5 +440,6 @@ def _format_profile_error(profile: TelegramUserProfile, errors: list[str]) -> st
         f"timeframe={profile.timeframe} risk={profile.risk_per_trade_pct} "
         f"rr={profile.rr_ratio} max_dd={profile.max_daily_drawdown_pct} "
         f"max_pos={profile.max_open_positions} "
+        f"sl={profile.sl_pct} tp={profile.tp_pct} open_pos={profile.open_positions_count} "
         f"report={profile.position_report_minutes}"
     )

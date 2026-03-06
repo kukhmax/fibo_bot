@@ -602,6 +602,19 @@ Commit: `9300ee2`
 
 ---
 
+Дата/время (UTC): 2026-03-06  
+Подэтап: `E5.5`  
+Что сделано: Реализованы команды управления позицией из Telegram: изменение SL/TP и закрытие позиции.  
+Какие файлы изменены: `core/bot/profile.py`, `core/bot/commands.py`, `core/bot/main.py`, `core/bot/reporter.py`, `tests/test_bot_profile_store.py`, `tests/test_bot_router.py`, `DEVELOP.md`  
+Реализованная логика: В профиль добавлены `sl_pct`, `tp_pct`, `open_positions_count`. Добавлены команды `/set_sl <0.1..20>`, `/set_tp <0.1..50>`, `/close`, а также пресеты в `/risk` меню. Runtime в `paper` режиме инкрементирует `open_positions_count` при новом сигнале, а `/close` декрементирует счетчик открытых позиций.  
+Команды: `python -m unittest tests.test_bot_profile_store tests.test_bot_router tests.test_reports_scheduler tests.test_risk_drawdown tests.test_config_loader -v`, полный регресс `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot tests.test_candle_builder tests.test_data_quality tests.test_data_fallback tests.test_ws_runtime tests.test_realtime_candle_pipeline tests.test_mexc_ws_adapter tests.test_persistence tests.test_bot_router tests.test_bot_profile_store tests.test_telegram_transport tests.test_reports_scheduler tests.test_strategy_selector tests.test_strategy_trend_pullback tests.test_strategy_volatility_breakout tests.test_strategy_liquidity_sweep tests.test_regime_classifier tests.test_ml_history_pipeline tests.test_feature_dataset_builder tests.test_ml_dataset_builder tests.test_ml_labeling tests.test_ml_training tests.test_ml_inference tests.test_risk_manager tests.test_risk_drawdown -v`  
+Тесты: Прогнано 97 unit-тестов, все успешны; добавлены тесты `/set_sl`, `/set_tp`, `/close` и расширены проверки risk-меню.  
+Как проверено: Подтверждено корректное обновление SL/TP через Telegram, закрытие позиции с уменьшением счетчика и отсутствие регрессий.  
+Результат: Подэтап `E5.5` завершен, базовое управление позицией доступно через Telegram-команды.  
+Commit: будет добавлен после фиксации изменений в git.
+
+---
+
 ## 5) TODO после MVP (согласовано)
 
 - Добавить whitelist активов по ликвидности и спреду.

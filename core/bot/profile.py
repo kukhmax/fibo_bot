@@ -15,6 +15,9 @@ class TelegramUserProfile:
     rr_ratio: float
     max_daily_drawdown_pct: float
     max_open_positions: int
+    sl_pct: float
+    tp_pct: float
+    open_positions_count: int
     position_report_minutes: int
 
 
@@ -35,6 +38,9 @@ class TelegramUserProfileStore:
             rr_ratio=2.0,
             max_daily_drawdown_pct=config.risk.max_daily_drawdown_pct,
             max_open_positions=1,
+            sl_pct=0.5,
+            tp_pct=1.0,
+            open_positions_count=0,
             position_report_minutes=config.bot.position_report_minutes,
         )
         self.save(created)
@@ -53,6 +59,9 @@ class TelegramUserProfileStore:
             rr_ratio=float(payload.get("rr_ratio", 2.0)),
             max_daily_drawdown_pct=float(payload.get("max_daily_drawdown_pct", 10.0)),
             max_open_positions=int(payload.get("max_open_positions", 1)),
+            sl_pct=float(payload.get("sl_pct", 0.5)),
+            tp_pct=float(payload.get("tp_pct", 1.0)),
+            open_positions_count=int(payload.get("open_positions_count", 0)),
             position_report_minutes=int(payload["position_report_minutes"]),
         )
 
