@@ -178,20 +178,18 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Позиция закрыта", close_result.response_text)
         self.assertIn("Открытых позиций: 1", status_result.response_text)
 
-    async def test_risk_menu_returns_inline_keyboard(self) -> None:
+    async def test_risk_menu_returns_reply_keyboard(self) -> None:
         config = load_environment_config("dev")
         router = build_default_router(config, profile_store=self._store)
         result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/risk"))
         self.assertTrue(result.handled)
         self.assertIn("Меню риска", result.response_text)
-        self.assertIsNotNone(result.inline_keyboard)
-        assert result.inline_keyboard is not None
-        callbacks = [callback for row in result.inline_keyboard for (_text, callback) in row]
-        self.assertIn("/risk_risk", callbacks)
-        self.assertIn("/risk_rr", callbacks)
-        self.assertIn("/risk_dd", callbacks)
-        self.assertIn("/risk_limits", callbacks)
-        self.assertIn("/risk_sl_tp", callbacks)
+        self.assertIsNotNone(result.reply_keyboard)
+        assert result.reply_keyboard is not None
+        labels = [label for row in result.reply_keyboard for label in row]
+        self.assertTrue(any("Настроить Risk" in label for label in labels))
+        self.assertTrue(any("Настроить RR" in label for label in labels))
+        self.assertTrue(any("Настроить DD" in label for label in labels))
 
     async def test_menu_has_human_friendly_buttons(self) -> None:
         config = load_environment_config("dev")
@@ -272,10 +270,11 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Настройка Risk", risk_values.response_text)
         self.assertIn("Настройка Risk/Reward", rr_values.response_text)
         self.assertIn("Настройка дневной просадки", dd_values.response_text)
-        assert risk_values.inline_keyboard is not None
-        risk_callbacks = [callback for row in risk_values.inline_keyboard for (_text, callback) in row]
-        self.assertIn("/set_risk 1.0", risk_callbacks)
-        self.assertIn("/risk", risk_callbacks)
+        
+        assert risk_values.reply_keyboard is not None
+        risk_labels = [label for row in risk_values.reply_keyboard for label in row]
+        self.assertTrue(any("Risk 1.0%" in label for label in risk_labels))
+        self.assertTrue(any("Назад" in label for label in risk_labels))
 
     async def test_readiness_reports_missing_secrets(self) -> None:
         config = load_environment_config("dev")

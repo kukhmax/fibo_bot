@@ -810,6 +810,23 @@ Commit: `10c9501`
 
 ---
 
+Дата/время (UTC): 2026-03-07
+Подэтап: `E7.8`
+Что сделано: Реализован интерактивный UI для управления парами и рисками (Reply Keyboards) и Multipair Runtime.
+Какие файлы изменены: `core/bot/commands.py`, `core/bot/router.py`, `core/bot/main.py`, `core/bot/profile.py`, `tests/test_bot_router.py`, `tests/test_bot_profile_store.py`, `tests/test_integration_user_flows.py`, `DEVELOP.md`
+Реализованная логика: 
+1. Переведены меню "Пары", "Риск", "Таймфрейм" на нижние кнопки (Reply Keyboards).
+2. Реализована state-machine для ввода значений (добавление пары, ввод риска/RR/SL вручную).
+3. Обновлен `main.py` для конкурентного запуска пайплайнов по всем активным парам пользователей (`asyncio.gather`).
+4. В `CommandRouter` добавлена поддержка текстовых лейблов кнопок.
+Команды: `python -m unittest tests.test_bot_router tests.test_integration_user_flows tests.test_bot_profile_store -v`
+Тесты: Прогнано 130 unit/integration тестов, все успешны.
+Как проверено: Ручное тестирование UI в Telegram (добавление/удаление пар, настройка рисков), проверка логов Docker на запуск пайплайнов.
+Результат: Подэтап `E7.8` завершен, улучшен UX и добавлена мультипарность.
+Commit: TBD
+
+---
+
 ## 5) TODO после MVP (согласовано)
 
 - Расширить news-engine до полноценных внешних источников и классификации тональности.

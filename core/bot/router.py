@@ -99,6 +99,14 @@ class CommandRouter:
                 "🧯 SL 1.0%": "/set_sl 1.0",
                 "💰 TP 1.0%": "/set_tp 1.0",
                 "💰 TP 2.0%": "/set_tp 2.0",
+                "🛡 Настроить Risk": "/risk_risk",
+                "🎯 Настроить RR": "/risk_rr",
+                "🚫 Настроить DD": "/risk_dd",
+                "📦 Лимит позиций": "/risk_limits",
+                "🧯 SL/TP": "/risk_sl_tp",
+                "❌ Закрыть позицию": "/close",
+                "🔄 Обновить": "/risk",
+                "⬅️ Назад": "/risk",
             }
             mapped = quick_map.get(_normalize_menu_text(stripped))
             if mapped is None:

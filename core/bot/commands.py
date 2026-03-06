@@ -36,20 +36,20 @@ def build_default_router(
     ml_reporter = MlQualityReporter(artifact_store=ml_artifact_store)
     pair_flow_state = StateCache("runtime/pair_flow_state.json")
 
-    def _pair_flow_key(user_id: int) -> str:
-        return f"pair_flow:{user_id}"
+    def _flow_key(user_id: int) -> str:
+        return f"flow:{user_id}"
 
-    def _set_pair_flow(user_id: int, action: str) -> None:
-        pair_flow_state.set(_pair_flow_key(user_id), {"action": action})
+    def _set_flow(user_id: int, action: str) -> None:
+        pair_flow_state.set(_flow_key(user_id), {"action": action})
 
-    def _get_pair_flow(user_id: int) -> str:
-        payload = pair_flow_state.get(_pair_flow_key(user_id))
+    def _get_flow(user_id: int) -> str:
+        payload = pair_flow_state.get(_flow_key(user_id))
         if not isinstance(payload, dict):
             return ""
         return str(payload.get("action", "")).strip().lower()
 
-    def _clear_pair_flow(user_id: int) -> None:
-        pair_flow_state.set(_pair_flow_key(user_id), {})
+    def _clear_flow(user_id: int) -> None:
+        pair_flow_state.set(_flow_key(user_id), {})
 
     def start_handler(ctx: CommandContext, args: str) -> dict:
         profile = store.get_or_create(ctx.user_id, config)
@@ -249,16 +249,15 @@ def build_default_router(
         for index, pair in enumerate(profile.trading_pairs, start=1):
             lines.append(f"{index}) {pair.symbol} • {pair.timeframe}")
         lines.append("")
-        lines.append("Нажми кнопку ниже:")
-        inline = ((( "➕ Добавить пару", "/pair_add"), ("➖ Удалить пару", "/pair_remove")),)
-        return {"text": "\n".join(lines), "inline_keyboard": inline}
+        lines.append("Управление парами 👇")
+        return {"text": "\n".join(lines), "reply_keyboard": _pairs_menu_reply()}
 
     def pair_add_handler(ctx: CommandContext, args: str) -> str:
         profile = store.get_or_create(ctx.user_id, config)
         if not _access_write_allowed(config):
             return "Режим доступа notify_only: команда недоступна."
         if not args.strip():
-            _set_pair_flow(ctx.user_id, "await_pair_add")
+            _set_flow(ctx.user_id, "await_pair_add")
             return (
                 "➕ Добавление пары\n"
                 "Введи одним сообщением: SYMBOL TIMEFRAME\n"
@@ -272,7 +271,7 @@ def build_default_router(
         updated_pairs = tuple(merged[key] for key in sorted(merged))
         updated = replace(profile, trading_pairs=updated_pairs)
         store.save(updated)
-        _clear_pair_flow(ctx.user_id)
+        _clear_flow(ctx.user_id)
         return f"✅ Пара добавлена: {symbol} • {timeframe}\nВсего пар: {len(updated_pairs)}"
 
     def pair_remove_handler(ctx: CommandContext, args: str) -> dict:
@@ -303,13 +302,29 @@ def build_default_router(
         return pair_remove_handler(ctx, args)
 
     def text_handler(ctx: CommandContext, args: str) -> str:
-        action = _get_pair_flow(ctx.user_id)
-        if action != "await_pair_add":
-            return "Команда не распознана."
-        symbol, timeframe, errors = _parse_pair_args(args)
-        if errors:
-            return "Неверный формат. Введи так: BTCUSDT 5m"
-        return pair_add_handler(ctx, f"{symbol} {timeframe}")
+        action = _get_flow(ctx.user_id)
+        if action == "await_risk":
+            return set_risk_handler(ctx, args)
+        elif action == "await_rr":
+            return set_rr_handler(ctx, args)
+        elif action == "await_dd":
+            return set_dd_handler(ctx, args)
+        elif action == "await_maxpos":
+            return set_maxpos_handler(ctx, args)
+        elif action == "await_sltp":
+            normalized = args.strip().upper()
+            if normalized.startswith("SL"):
+                return set_sl_handler(ctx, normalized[2:].strip())
+            if normalized.startswith("TP"):
+                return set_tp_handler(ctx, normalized[2:].strip())
+            return "Укажи тип: 'SL 0.5' или 'TP 1.0'"
+        elif action == "await_pair_add":
+            symbol, timeframe, errors = _parse_pair_args(args)
+            if errors:
+                return "Неверный формат. Введи так: BTCUSDT 5m"
+            return pair_add_handler(ctx, f"{symbol} {timeframe}")
+        
+        return "Команда не распознана."
 
     def readiness_handler(ctx: CommandContext, __: str) -> str:
         profile = store.get_or_create(ctx.user_id, config)
@@ -377,76 +392,76 @@ def build_default_router(
             f"💰 TP: {profile.tp_pct}%\n"
             "Выбери раздел настройки:"
         )
-        inline = (
-            (("🛡 Настроить Risk", "/risk_risk"), ("🎯 Настроить RR", "/risk_rr")),
-            (("🚫 Настроить DD", "/risk_dd"), ("📦 Лимит позиций", "/risk_limits")),
-            (("🧯 SL/TP", "/risk_sl_tp"), ("❌ Закрыть позицию", "/close")),
-            (("🔄 Обновить", "/risk"), ("🏠 Главное меню", "/menu")),
-        )
-        return {"text": text, "inline_keyboard": inline, "reply_keyboard": _risk_menu_reply()}
+        return {"text": text, "reply_keyboard": _risk_menu_reply()}
 
     def risk_risk_handler(ctx: CommandContext, __: str) -> dict:
+        _set_flow(ctx.user_id, "await_risk")
         profile = store.get_or_create(ctx.user_id, config)
         text = (
             "🛡 Настройка Risk на сделку\n"
             f"Сейчас: {profile.risk_per_trade_pct}%\n"
             "Рекомендация: 0.5% - 1.0% для спокойного режима."
         )
-        inline = (
-            (("🛡 0.5%", "/set_risk 0.5"), ("🛡 1.0%", "/set_risk 1.0"), ("🛡 1.5%", "/set_risk 1.5")),
-            (("⬅️ Назад в риск-меню", "/risk"), ("🏠 Главное меню", "/menu")),
+        reply = (
+            ("🛡 Risk 0.5%", "🛡 Risk 1.0%", "🛡 Risk 1.5%"),
+            ("⬅️ Назад", "🏠 Меню"),
         )
-        return {"text": text, "inline_keyboard": inline, "reply_keyboard": _risk_menu_reply()}
+        return {"text": text, "reply_keyboard": reply}
 
     def risk_rr_handler(ctx: CommandContext, __: str) -> dict:
+        _set_flow(ctx.user_id, "await_rr")
         profile = store.get_or_create(ctx.user_id, config)
         text = (
             "🎯 Настройка Risk/Reward\n"
             f"Сейчас: {profile.rr_ratio}\n"
             "Чем выше RR, тем реже исполнение, но выше цель."
         )
-        inline = (
-            (("🎯 1.5", "/set_rr 1.5"), ("🎯 2.0", "/set_rr 2.0"), ("🎯 2.5", "/set_rr 2.5")),
-            (("⬅️ Назад в риск-меню", "/risk"), ("🏠 Главное меню", "/menu")),
+        reply = (
+            ("🎯 RR 1.5", "🎯 RR 2.0", "🎯 RR 2.5"),
+            ("⬅️ Назад", "🏠 Меню"),
         )
-        return {"text": text, "inline_keyboard": inline, "reply_keyboard": _risk_menu_reply()}
+        return {"text": text, "reply_keyboard": reply}
 
     def risk_dd_handler(ctx: CommandContext, __: str) -> dict:
+        _set_flow(ctx.user_id, "await_dd")
         profile = store.get_or_create(ctx.user_id, config)
         text = (
             "🚫 Настройка дневной просадки (DD)\n"
             f"Сейчас: {profile.max_daily_drawdown_pct}%\n"
             "При превышении лимита новые входы блокируются до следующего UTC-дня."
         )
-        inline = (
-            (("🚫 5%", "/set_dd 5"), ("🚫 8%", "/set_dd 8"), ("🚫 10%", "/set_dd 10")),
-            (("⬅️ Назад в риск-меню", "/risk"), ("🏠 Главное меню", "/menu")),
+        reply = (
+            ("🚫 DD 5%", "🚫 DD 8%", "🚫 DD 10%"),
+            ("⬅️ Назад", "🏠 Меню"),
         )
-        return {"text": text, "inline_keyboard": inline, "reply_keyboard": _risk_menu_reply()}
+        return {"text": text, "reply_keyboard": reply}
 
-    def risk_limits_handler(_: CommandContext, __: str) -> dict:
+    def risk_limits_handler(ctx: CommandContext, __: str) -> dict:
+        _set_flow(ctx.user_id, "await_maxpos")
         text = "📦 Лимит открытых позиций"
-        inline = (
-            (("📦 1", "/set_maxpos 1"), ("📦 2", "/set_maxpos 2"), ("📦 3", "/set_maxpos 3")),
-            (("⬅️ Назад в риск-меню", "/risk"), ("🏠 Главное меню", "/menu")),
+        reply = (
+            ("📦 MaxPos 1", "📦 MaxPos 2", "📦 MaxPos 3"),
+            ("⬅️ Назад", "🏠 Меню"),
         )
-        return {"text": text, "inline_keyboard": inline, "reply_keyboard": _risk_menu_reply()}
+        return {"text": text, "reply_keyboard": reply}
 
     def risk_sl_tp_handler(ctx: CommandContext, __: str) -> dict:
+        _set_flow(ctx.user_id, "await_sltp")
         profile = store.get_or_create(ctx.user_id, config)
         text = (
             "🧯 Настройка SL/TP\n"
             f"Сейчас SL: {profile.sl_pct}%\n"
             f"Сейчас TP: {profile.tp_pct}%"
         )
-        inline = (
-            (("🧯 SL 0.5%", "/set_sl 0.5"), ("🧯 SL 1.0%", "/set_sl 1.0")),
-            (("💰 TP 1.0%", "/set_tp 1.0"), ("💰 TP 2.0%", "/set_tp 2.0")),
-            (("⬅️ Назад в риск-меню", "/risk"), ("🏠 Главное меню", "/menu")),
+        reply = (
+            ("🧯 SL 0.5%", "🧯 SL 1.0%"),
+            ("💰 TP 1.0%", "💰 TP 2.0%"),
+            ("⬅️ Назад", "🏠 Меню"),
         )
-        return {"text": text, "inline_keyboard": inline, "reply_keyboard": _risk_menu_reply()}
+        return {"text": text, "reply_keyboard": reply}
 
-    def menu_handler(_: CommandContext, __: str) -> dict:
+    def menu_handler(ctx: CommandContext, __: str) -> dict:
+        _clear_flow(ctx.user_id)
         return {
             "text": (
                 "🏠 Главное меню\n"
@@ -644,12 +659,10 @@ def _main_menu_reply() -> tuple[tuple[str, ...], ...]:
 
 def _risk_menu_reply() -> tuple[tuple[str, ...], ...]:
     return (
-        ("🛡 Risk 0.5%", "🛡 Risk 1.0%", "🛡 Risk 1.5%"),
-        ("🎯 RR 1.5", "🎯 RR 2.0", "🎯 RR 2.5"),
-        ("🚫 DD 5%", "🚫 DD 8%", "🚫 DD 10%"),
-        ("📦 MaxPos 1", "📦 MaxPos 2", "📦 MaxPos 3"),
-        ("🧯 SL 0.5%", "🧯 SL 1.0%", "💰 TP 1.0%", "💰 TP 2.0%"),
-        ("📍 Позиции", "🏠 Меню"),
+        ("🛡 Настроить Risk", "🎯 Настроить RR"),
+        ("🚫 Настроить DD", "📦 Лимит позиций"),
+        ("🧯 SL/TP", "❌ Закрыть позицию"),
+        ("🔄 Обновить", "🏠 Меню"),
     )
 
 
@@ -657,6 +670,13 @@ def _tf_menu_reply() -> tuple[tuple[str, ...], ...]:
     return (
         ("⚡ TF 1m", "🚀 TF 5m", "📘 TF 15m"),
         ("🕐 TF 1h", "🌙 TF 4h", "🏠 Меню"),
+    )
+
+
+def _pairs_menu_reply() -> tuple[tuple[str, ...], ...]:
+    return (
+        ("➕ Добавить пару", "➖ Удалить пару"),
+        ("🏠 Меню",),
     )
 
 
