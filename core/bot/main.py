@@ -6,6 +6,7 @@ import os
 import sys
 
 from core.bot.commands import build_default_router
+from core.bot.alerts import RiskAlertNotifier
 from core.bot.health import health_snapshot_dict
 from core.bot.profile import TelegramUserProfileStore
 from core.bot.runtime import TelegramBotRuntime
@@ -99,6 +100,7 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
     )
     ml_enabled = bool(config_env.ml.enabled)
     risk_manager = RiskManager()
+    risk_alert_notifier = RiskAlertNotifier(cooldown_minutes=int(os.getenv("RISK_ALERT_COOLDOWN_MIN", "30")))
     drawdown_guard = DailyDrawdownGuard(
         max_daily_drawdown_pct=float(config_env.risk.max_daily_drawdown_pct),
         pause_until_utc_hour=int(config_env.risk.pause_until_utc_hour),
@@ -141,6 +143,13 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
             risk_check = risk_manager.validate_risk_per_trade_pct(risk_value)
             if not risk_check.allowed:
                 transport.send_text(chat_id=user_id, text=f"risk_blocked: {risk_check.reason}")
+                risk_alert_notifier.maybe_send(
+                    transport=transport,
+                    chat_id=user_id,
+                    user_id=user_id,
+                    code="RISK_PER_TRADE_BLOCK",
+                    details=f"risk={risk_value} reason={risk_check.reason}",
+                )
                 continue
             raw_equity = payload.get("paper_equity", default_equity)
             try:
@@ -166,6 +175,16 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
                         f"limit={drawdown_check.max_drawdown_pct:.2f}%{pause_note}"
                     ),
                 )
+                risk_alert_notifier.maybe_send(
+                    transport=transport,
+                    chat_id=user_id,
+                    user_id=user_id,
+                    code="DAILY_DRAWDOWN_BLOCK",
+                    details=(
+                        f"daily_drawdown={drawdown_check.drawdown_pct:.2f}% "
+                        f"limit={drawdown_check.max_drawdown_pct:.2f}% reason={drawdown_check.reason}"
+                    ),
+                )
                 continue
             raw_max_pos = payload.get("max_open_positions", 1)
             raw_open_pos = payload.get("open_positions_count", 0)
@@ -181,6 +200,13 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
                 transport.send_text(
                     chat_id=user_id,
                     text=f"risk_blocked: open_positions={open_positions_count} limit={max_open_positions}",
+                )
+                risk_alert_notifier.maybe_send(
+                    transport=transport,
+                    chat_id=user_id,
+                    user_id=user_id,
+                    code="MAX_OPEN_POSITIONS_BLOCK",
+                    details=f"open_positions={open_positions_count} limit={max_open_positions}",
                 )
                 continue
             text = (
