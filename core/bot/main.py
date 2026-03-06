@@ -13,6 +13,7 @@ from core.bot.telegram_transport import TelegramApiTransport
 from core.data.pipeline import RealtimeCandlePipeline
 from core.ml.inference import MlSignalFilter
 from core.regime import RuleBasedRegimeClassifier
+from core.risk import DailyDrawdownGuard
 from core.risk import RiskManager
 from core.strategies import LiquiditySweepReversalStrategy
 from core.strategies import TrendPullbackStrategy
@@ -98,6 +99,8 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
     )
     ml_enabled = bool(config_env.ml.enabled)
     risk_manager = RiskManager()
+    drawdown_guard = DailyDrawdownGuard(max_daily_drawdown_pct=float(config_env.risk.max_daily_drawdown_pct))
+    default_equity = float(os.getenv("PAPER_START_EQUITY", "1000"))
 
     async def on_candle(candle):
         regime_window.append(candle)
@@ -136,11 +139,27 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
             if not risk_check.allowed:
                 transport.send_text(chat_id=user_id, text=f"risk_blocked: {risk_check.reason}")
                 continue
+            raw_equity = payload.get("paper_equity", default_equity)
+            try:
+                current_equity = float(raw_equity)
+            except Exception:
+                current_equity = default_equity
+            drawdown_check = drawdown_guard.evaluate(user_id=user_id, current_equity=current_equity)
+            if not drawdown_check.allowed:
+                transport.send_text(
+                    chat_id=user_id,
+                    text=(
+                        f"risk_blocked: daily_drawdown={drawdown_check.drawdown_pct:.2f}% "
+                        f"limit={drawdown_check.max_drawdown_pct:.2f}%"
+                    ),
+                )
+                continue
             text = (
                 f"[{decision.strategy}] {decision.direction} {symbol} {timeframe}\n"
                 f"regime={regime.label} confidence={regime.confidence}\n"
                 f"ml_prob={ml_probability}\n"
                 f"risk_per_trade_pct={risk_check.risk_per_trade_pct}\n"
+                f"daily_drawdown_pct={drawdown_check.drawdown_pct:.2f}\n"
                 f"explain={decision.explain}"
             )
             transport.send_text(chat_id=user_id, text=text)

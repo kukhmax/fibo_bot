@@ -537,6 +537,19 @@ Commit: `338ae30`
 
 ---
 
+Дата/время (UTC): 2026-03-05  
+Подэтап: `E5.2`  
+Что сделано: Реализован дневной лимит просадки `<=10%` с блокировкой сигналов в runtime.  
+Какие файлы изменены: `core/risk/drawdown.py`, `core/risk/__init__.py`, `core/config/loader.py`, `core/bot/main.py`, `tests/test_risk_drawdown.py`, `tests/test_config_loader.py`, `DEVELOP.md`  
+Реализованная логика: Добавлен `DailyDrawdownGuard`, который ведет дневное состояние equity по UTC-дню и считает drawdown относительно дневного старта. При превышении порога `max_daily_drawdown_pct` (из конфига, max 10) отправка новых сигналов для пользователя блокируется. В конфиг-лоадере добавлена валидация диапазона `max_daily_drawdown_pct` в пределах `(0..10]`.  
+Команды: `python -m unittest tests.test_risk_manager tests.test_risk_drawdown tests.test_bot_router tests.test_config_loader -v`, полный регресс `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot tests.test_candle_builder tests.test_data_quality tests.test_data_fallback tests.test_ws_runtime tests.test_realtime_candle_pipeline tests.test_mexc_ws_adapter tests.test_persistence tests.test_bot_router tests.test_bot_profile_store tests.test_telegram_transport tests.test_reports_scheduler tests.test_strategy_selector tests.test_strategy_trend_pullback tests.test_strategy_volatility_breakout tests.test_strategy_liquidity_sweep tests.test_regime_classifier tests.test_ml_history_pipeline tests.test_feature_dataset_builder tests.test_ml_dataset_builder tests.test_ml_labeling tests.test_ml_training tests.test_ml_inference tests.test_risk_manager tests.test_risk_drawdown -v`  
+Тесты: Прогнано 90 unit-тестов, все успешны; добавлены тесты сценариев daily drawdown guard.  
+Как проверено: Подтверждены корректный расчет дневной просадки, блокировка при превышении лимита и отсутствие регрессий во всех модулях.  
+Результат: Подэтап `E5.2` завершен, дневной лимит просадки `<=10%` enforced в signal/paper runtime.  
+Commit: будет добавлен после фиксации изменений в git.
+
+---
+
 ## 5) TODO после MVP (согласовано)
 
 - Добавить whitelist активов по ликвидности и спреду.

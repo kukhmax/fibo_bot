@@ -29,6 +29,9 @@ def load_environment_config(environment: str) -> EnvironmentConfig:
     risk_check = RISK_MANAGER.validate_risk_per_trade_pct(float(risk_payload["risk_per_trade_pct"]))
     if not risk_check.allowed:
         raise ValueError(f"Invalid risk_per_trade_pct in {config_path.name}: {risk_check.reason}")
+    max_daily_drawdown_pct = float(risk_payload["max_daily_drawdown_pct"])
+    if max_daily_drawdown_pct <= 0 or max_daily_drawdown_pct > 10:
+        raise ValueError(f"Invalid max_daily_drawdown_pct in {config_path.name}: must be in range 0..10")
 
     return EnvironmentConfig(
         environment=payload["environment"],
