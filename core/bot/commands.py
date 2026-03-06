@@ -6,8 +6,10 @@ from core.bot.profile import TelegramUserProfile
 from core.bot.profile import TelegramUserProfileStore
 from core.backtest import load_backtest_candles
 from core.backtest import load_local_backtest_candles
+from core.backtest import run_mini_backtest
 from core.config.models import EnvironmentConfig
 from core.ml.artifacts import ModelArtifactStore
+from core.ml.inference import MlSignalFilter
 from core.bot.reporter import MlQualityReporter
 from core.bot.reporter import PositionReporter
 from core.risk import RiskManager
@@ -296,7 +298,18 @@ def build_default_router(
             return {"text": text, "inline_keyboard": None}
         local_candles = load_local_backtest_candles(symbol=symbol, timeframe=timeframe, limit=3000)
         candles = load_backtest_candles(symbol=symbol, timeframe=timeframe, limit=3000)
+        backtest_report = run_mini_backtest(candles=candles, ml_filter=MlSignalFilter())
         fetch_status = "ok" if len(candles) >= 3000 else "partial"
+        regime_summary = ",".join(
+            f"{label}:{count}" for label, count in sorted(backtest_report.regime_counts.items(), key=lambda item: item[0])
+        )
+        strategy_summary = ",".join(
+            f"{name}:{count}" for name, count in sorted(backtest_report.strategy_entry_counts.items(), key=lambda item: item[0])
+        )
+        if not regime_summary:
+            regime_summary = "none"
+        if not strategy_summary:
+            strategy_summary = "none"
         text = (
             "Mini-backtest\n"
             f"symbol={symbol}\n"
@@ -304,7 +317,12 @@ def build_default_router(
             f"candles_local_before={len(local_candles)}\n"
             f"candles_loaded={len(candles)}\n"
             f"remote_fetch={fetch_status}\n"
-            "Шаг 2/4 завершен: загружено до 3000 свечей."
+            f"signals_total={backtest_report.entries_total}\n"
+            f"signals_after_ml={backtest_report.entries_after_ml}\n"
+            f"signals_blocked_ml={backtest_report.entries_blocked_ml}\n"
+            f"regimes={regime_summary}\n"
+            f"strategies={strategy_summary}\n"
+            "Шаг 3/4 завершен: стратегии и ML-фильтр прогнаны."
         )
         inline = ((( "Изменить выбор", "/backtest"),),)
         return {"text": text, "inline_keyboard": inline}

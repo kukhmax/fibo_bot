@@ -208,6 +208,9 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(result.handled)
         self.assertIn("symbol=BTCUSDT", result.response_text)
         self.assertIn("timeframe=5m", result.response_text)
+        self.assertIn("signals_total=", result.response_text)
+        self.assertIn("signals_after_ml=", result.response_text)
+        self.assertIn("signals_blocked_ml=", result.response_text)
 
     async def test_backtest_rejects_invalid_symbol(self) -> None:
         config = load_environment_config("dev")
