@@ -2,6 +2,8 @@
 
 Telegram-бот для сигналов, paper-торговли и подготовки к live-режиму с контролем риска, mini-backtest, ML-фильтром и новостным risk-gate.
 
+Быстрый сценарий запуска и проверки: [README_QUICKSTART.md](file:///c:/Users/m-win/Projects/fib_bot/README_QUICKSTART.md)
+
 ## Возможности
 
 - Режимы работы: `signal_only`, `paper`, `live`
