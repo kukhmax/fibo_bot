@@ -589,6 +589,19 @@ Commit: `9e9ba9b`
 
 ---
 
+Дата/время (UTC): 2026-03-06  
+Подэтап: `E5.4`  
+Что сделано: Реализован контроль максимума открытых позиций с настройкой из Telegram-профиля.  
+Какие файлы изменены: `core/bot/profile.py`, `core/bot/commands.py`, `core/bot/main.py`, `core/bot/reporter.py`, `tests/test_bot_profile_store.py`, `tests/test_bot_router.py`, `DEVELOP.md`  
+Реализованная логика: В профиль добавлено поле `max_open_positions` (default=1), добавлена команда `/set_maxpos <1..10>` и пресеты в `/risk` меню. В runtime перед отправкой сигнала добавлена блокировка `risk_blocked` при `open_positions_count >= max_open_positions`. В статус/отчеты добавлен вывод `max_pos`.  
+Команды: `python -m unittest tests.test_bot_profile_store tests.test_bot_router tests.test_reports_scheduler tests.test_risk_drawdown tests.test_config_loader -v`, полный регресс `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot tests.test_candle_builder tests.test_data_quality tests.test_data_fallback tests.test_ws_runtime tests.test_realtime_candle_pipeline tests.test_mexc_ws_adapter tests.test_persistence tests.test_bot_router tests.test_bot_profile_store tests.test_telegram_transport tests.test_reports_scheduler tests.test_strategy_selector tests.test_strategy_trend_pullback tests.test_strategy_volatility_breakout tests.test_strategy_liquidity_sweep tests.test_regime_classifier tests.test_ml_history_pipeline tests.test_feature_dataset_builder tests.test_ml_dataset_builder tests.test_ml_labeling tests.test_ml_training tests.test_ml_inference tests.test_risk_manager tests.test_risk_drawdown -v`  
+Тесты: Прогнано 95 unit-тестов, все успешны; добавлены тесты `/set_maxpos` и проверки пресетов risk-меню.  
+Как проверено: Подтверждено обновление лимита позиций через Telegram и корректная риск-блокировка в runtime при достижении лимита.  
+Результат: Подэтап `E5.4` завершен, контроль max open positions активирован.  
+Commit: будет добавлен после фиксации изменений в git.
+
+---
+
 ## 5) TODO после MVP (согласовано)
 
 - Добавить whitelist активов по ликвидности и спреду.

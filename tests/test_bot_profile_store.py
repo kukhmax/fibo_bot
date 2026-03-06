@@ -19,6 +19,7 @@ class TestBotProfileStore(unittest.TestCase):
             self.assertEqual(profile.timeframe, "5m")
             self.assertEqual(profile.rr_ratio, 2.0)
             self.assertEqual(profile.max_daily_drawdown_pct, 10.0)
+            self.assertEqual(profile.max_open_positions, 1)
 
     def test_profile_persists_across_store_instances(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

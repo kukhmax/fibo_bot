@@ -167,12 +167,29 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
                     ),
                 )
                 continue
+            raw_max_pos = payload.get("max_open_positions", 1)
+            raw_open_pos = payload.get("open_positions_count", 0)
+            try:
+                max_open_positions = int(raw_max_pos)
+            except Exception:
+                max_open_positions = 1
+            try:
+                open_positions_count = int(raw_open_pos)
+            except Exception:
+                open_positions_count = 0
+            if open_positions_count >= max_open_positions:
+                transport.send_text(
+                    chat_id=user_id,
+                    text=f"risk_blocked: open_positions={open_positions_count} limit={max_open_positions}",
+                )
+                continue
             text = (
                 f"[{decision.strategy}] {decision.direction} {symbol} {timeframe}\n"
                 f"regime={regime.label} confidence={regime.confidence}\n"
                 f"ml_prob={ml_probability}\n"
                 f"risk_per_trade_pct={risk_check.risk_per_trade_pct}\n"
                 f"rr={payload.get('rr_ratio', 2.0)}\n"
+                f"open_positions={open_positions_count}/{max_open_positions}\n"
                 f"daily_drawdown_pct={drawdown_check.drawdown_pct:.2f}\n"
                 f"explain={decision.explain}"
             )
