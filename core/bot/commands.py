@@ -19,7 +19,7 @@ COMMAND_KEYBOARD: tuple[tuple[str, ...], ...] = (
     ("/set_risk 0.5", "/set_risk 1.0", "/set_risk 1.5"),
     ("/set_rr 1.5", "/set_rr 2.0"),
     ("/set_dd 5", "/set_dd 10"),
-    ("/positions", "/ml_report"),
+    ("/positions", "/ml_report", "/risk"),
 )
 RISK_MANAGER = RiskManager()
 
@@ -166,6 +166,23 @@ def build_default_router(
     def ml_report_handler(_: CommandContext, __: str) -> str:
         return ml_reporter.build_report()
 
+    def risk_menu_handler(ctx: CommandContext, __: str) -> dict:
+        profile = store.get_or_create(ctx.user_id, config)
+        text = (
+            "Risk меню\n"
+            f"risk={profile.risk_per_trade_pct}\n"
+            f"rr={profile.rr_ratio}\n"
+            f"max_dd={profile.max_daily_drawdown_pct}\n"
+            "Выбери быстрый пресет:"
+        )
+        inline = (
+            (("Risk 0.5%", "/set_risk 0.5"), ("Risk 1.0%", "/set_risk 1.0"), ("Risk 1.5%", "/set_risk 1.5")),
+            (("RR 1.5", "/set_rr 1.5"), ("RR 2.0", "/set_rr 2.0"), ("RR 2.5", "/set_rr 2.5")),
+            (("DD 5%", "/set_dd 5"), ("DD 8%", "/set_dd 8"), ("DD 10%", "/set_dd 10")),
+            (("Обновить", "/risk"),),
+        )
+        return {"text": text, "inline_keyboard": inline}
+
     router.add_route("/start", start_handler)
     router.add_route("/help", help_handler)
     router.add_route("/mode", mode_handler)
@@ -176,6 +193,7 @@ def build_default_router(
     router.add_route("/status", status_handler)
     router.add_route("/positions", positions_handler)
     router.add_route("/ml_report", ml_report_handler)
+    router.add_route("/risk", risk_menu_handler)
     return router
 
 

@@ -142,6 +142,19 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         self.assertIn("max_dd обновлен: 8.0", dd_result.response_text)
         self.assertIn("max_dd=8.0", status_result.response_text)
 
+    async def test_risk_menu_returns_inline_keyboard(self) -> None:
+        config = load_environment_config("dev")
+        router = build_default_router(config, profile_store=self._store)
+        result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/risk"))
+        self.assertTrue(result.handled)
+        self.assertIn("Risk меню", result.response_text)
+        self.assertIsNotNone(result.inline_keyboard)
+        assert result.inline_keyboard is not None
+        callbacks = [callback for row in result.inline_keyboard for (_text, callback) in row]
+        self.assertIn("/set_risk 1.0", callbacks)
+        self.assertIn("/set_rr 2.0", callbacks)
+        self.assertIn("/set_dd 10", callbacks)
+
     async def test_notify_only_access_blocks_updates(self) -> None:
         config = load_environment_config("dev")
         config = dc_replace(config, bot=dc_replace(config.bot, access_mode="notify_only"))

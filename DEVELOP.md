@@ -563,6 +563,19 @@ Commit: `5de7285`
 
 ---
 
+Дата/время (UTC): 2026-03-06  
+Подэтап: `E5.risk_menu`  
+Что сделано: Добавлено интерактивное risk-меню в Telegram с пресетами risk/RR/drawdown.  
+Какие файлы изменены: `core/bot/commands.py`, `tests/test_bot_router.py`, `DEVELOP.md`  
+Реализованная логика: Добавлена команда `/risk`, которая возвращает inline-меню с кнопками быстрого применения `/set_risk`, `/set_rr`, `/set_dd` и кнопкой обновления. В reply-клавиатуру добавлена кнопка `/risk`.  
+Команды: `python -m unittest tests.test_bot_router tests.test_telegram_transport tests.test_bot_profile_store tests.test_reports_scheduler -v`, полный регресс `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot tests.test_candle_builder tests.test_data_quality tests.test_data_fallback tests.test_ws_runtime tests.test_realtime_candle_pipeline tests.test_mexc_ws_adapter tests.test_persistence tests.test_bot_router tests.test_bot_profile_store tests.test_telegram_transport tests.test_reports_scheduler tests.test_strategy_selector tests.test_strategy_trend_pullback tests.test_strategy_volatility_breakout tests.test_strategy_liquidity_sweep tests.test_regime_classifier tests.test_ml_history_pipeline tests.test_feature_dataset_builder tests.test_ml_dataset_builder tests.test_ml_labeling tests.test_ml_training tests.test_ml_inference tests.test_risk_manager tests.test_risk_drawdown -v`  
+Тесты: Прогнано 93 unit-теста, все успешны; добавлен тест inline-меню `/risk`.  
+Как проверено: Подтвержден корректный формат inline-кнопок и совместимость callback-команд с текущим роутером Telegram.  
+Результат: Управление risk-параметрами доступно как через текстовые команды, так и через интерактивное меню `/risk`.  
+Commit: будет добавлен после фиксации изменений в git.
+
+---
+
 ## 5) TODO после MVP (согласовано)
 
 - Добавить whitelist активов по ликвидности и спреду.
