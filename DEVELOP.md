@@ -550,6 +550,19 @@ Commit: `608b81b`
 
 ---
 
+Дата/время (UTC): 2026-03-06  
+Подэтап: `E5.settings`  
+Что сделано: Добавлена настройка risk, RR и лимита дневной просадки напрямую из Telegram-бота.  
+Какие файлы изменены: `core/bot/profile.py`, `core/bot/commands.py`, `core/bot/main.py`, `core/bot/reporter.py`, `core/risk/drawdown.py`, `tests/test_bot_router.py`, `tests/test_bot_profile_store.py`, `tests/test_config_loader.py`, `DEVELOP.md`  
+Реализованная логика: В профиль добавлены поля `rr_ratio` и `max_daily_drawdown_pct`; в Telegram добавлены команды `/set_rr` и `/set_dd`, а также быстрые кнопки. Команды `/start` и `/status` расширены новыми параметрами. Runtime применяет пользовательский `max_daily_drawdown_pct` при проверке drawdown, в сигнальные сообщения добавлен `rr`.  
+Команды: `python -m unittest tests.test_bot_profile_store tests.test_bot_router tests.test_reports_scheduler tests.test_risk_drawdown tests.test_risk_manager tests.test_config_loader -v`, полный регресс `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot tests.test_candle_builder tests.test_data_quality tests.test_data_fallback tests.test_ws_runtime tests.test_realtime_candle_pipeline tests.test_mexc_ws_adapter tests.test_persistence tests.test_bot_router tests.test_bot_profile_store tests.test_telegram_transport tests.test_reports_scheduler tests.test_strategy_selector tests.test_strategy_trend_pullback tests.test_strategy_volatility_breakout tests.test_strategy_liquidity_sweep tests.test_regime_classifier tests.test_ml_history_pipeline tests.test_feature_dataset_builder tests.test_ml_dataset_builder tests.test_ml_labeling tests.test_ml_training tests.test_ml_inference tests.test_risk_manager tests.test_risk_drawdown -v`  
+Тесты: Прогнано 92 unit-теста, все успешны; добавлены тесты новых Telegram-команд и профиля.  
+Как проверено: Подтверждена корректная настройка параметров из Telegram и применение их в runtime без регрессий.  
+Результат: Настройки risk, RR и дневной просадки доступны для пользователя непосредственно через Telegram-бота.  
+Commit: будет добавлен после фиксации изменений в git.
+
+---
+
 ## 5) TODO после MVP (согласовано)
 
 - Добавить whitelist активов по ликвидности и спреду.

@@ -126,6 +126,22 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Ошибка обновления профиля", result.response_text)
         self.assertIn("risk должен быть в диапазоне 0.1..2.0", result.response_text)
 
+    async def test_set_rr_command_updates_profile(self) -> None:
+        config = load_environment_config("dev")
+        router = build_default_router(config, profile_store=self._store)
+        rr_result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/set_rr 2.5"))
+        status_result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/status"))
+        self.assertIn("rr обновлен: 2.5", rr_result.response_text)
+        self.assertIn("rr=2.5", status_result.response_text)
+
+    async def test_set_dd_command_updates_profile(self) -> None:
+        config = load_environment_config("dev")
+        router = build_default_router(config, profile_store=self._store)
+        dd_result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/set_dd 8"))
+        status_result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/status"))
+        self.assertIn("max_dd обновлен: 8.0", dd_result.response_text)
+        self.assertIn("max_dd=8.0", status_result.response_text)
+
     async def test_notify_only_access_blocks_updates(self) -> None:
         config = load_environment_config("dev")
         config = dc_replace(config, bot=dc_replace(config.bot, access_mode="notify_only"))

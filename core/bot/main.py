@@ -144,7 +144,16 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
                 current_equity = float(raw_equity)
             except Exception:
                 current_equity = default_equity
-            drawdown_check = drawdown_guard.evaluate(user_id=user_id, current_equity=current_equity)
+            raw_max_dd = payload.get("max_daily_drawdown_pct", config_env.risk.max_daily_drawdown_pct)
+            try:
+                max_daily_drawdown_pct = float(raw_max_dd)
+            except Exception:
+                max_daily_drawdown_pct = float(config_env.risk.max_daily_drawdown_pct)
+            drawdown_check = drawdown_guard.evaluate(
+                user_id=user_id,
+                current_equity=current_equity,
+                max_daily_drawdown_pct=max_daily_drawdown_pct,
+            )
             if not drawdown_check.allowed:
                 transport.send_text(
                     chat_id=user_id,
@@ -159,6 +168,7 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
                 f"regime={regime.label} confidence={regime.confidence}\n"
                 f"ml_prob={ml_probability}\n"
                 f"risk_per_trade_pct={risk_check.risk_per_trade_pct}\n"
+                f"rr={payload.get('rr_ratio', 2.0)}\n"
                 f"daily_drawdown_pct={drawdown_check.drawdown_pct:.2f}\n"
                 f"explain={decision.explain}"
             )

@@ -12,6 +12,8 @@ class TelegramUserProfile:
     exchange: str
     timeframe: str
     risk_per_trade_pct: float
+    rr_ratio: float
+    max_daily_drawdown_pct: float
     position_report_minutes: int
 
 
@@ -29,6 +31,8 @@ class TelegramUserProfileStore:
             exchange=config.exchange.primary,
             timeframe=config.exchange.default_timeframe,
             risk_per_trade_pct=config.risk.risk_per_trade_pct,
+            rr_ratio=2.0,
+            max_daily_drawdown_pct=config.risk.max_daily_drawdown_pct,
             position_report_minutes=config.bot.position_report_minutes,
         )
         self.save(created)
@@ -44,6 +48,8 @@ class TelegramUserProfileStore:
             exchange=str(payload["exchange"]),
             timeframe=str(payload["timeframe"]),
             risk_per_trade_pct=float(payload["risk_per_trade_pct"]),
+            rr_ratio=float(payload.get("rr_ratio", 2.0)),
+            max_daily_drawdown_pct=float(payload.get("max_daily_drawdown_pct", 10.0)),
             position_report_minutes=int(payload["position_report_minutes"]),
         )
 

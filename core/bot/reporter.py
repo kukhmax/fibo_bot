@@ -10,6 +10,7 @@ class PositionReporter:
         return (
             "Отчет по позициям\n"
             f"mode={profile.mode} exchange={profile.exchange} timeframe={profile.timeframe}\n"
+            f"risk={profile.risk_per_trade_pct} rr={profile.rr_ratio} max_dd={profile.max_daily_drawdown_pct}\n"
             "Нет открытых позиций\n"
             f"ts={now}"
         )

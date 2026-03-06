@@ -17,6 +17,8 @@ COMMAND_KEYBOARD: tuple[tuple[str, ...], ...] = (
     ("/set_tf 1m", "/set_tf 5m", "/set_tf 15m"),
     ("/set_tf 1h", "/set_tf 4h"),
     ("/set_risk 0.5", "/set_risk 1.0", "/set_risk 1.5"),
+    ("/set_rr 1.5", "/set_rr 2.0"),
+    ("/set_dd 5", "/set_dd 10"),
     ("/positions", "/ml_report"),
 )
 RISK_MANAGER = RiskManager()
@@ -40,6 +42,7 @@ def build_default_router(
                     "Режим доступа notify_only: изменение настроек запрещено.\n"
                     f"Текущий профиль: mode={profile.mode} exchange={profile.exchange} "
                     f"timeframe={profile.timeframe} risk={profile.risk_per_trade_pct} "
+                    f"rr={profile.rr_ratio} max_dd={profile.max_daily_drawdown_pct} "
                     f"report={profile.position_report_minutes}"
                 )
             updated, errors = _apply_start_updates(profile, args)
@@ -54,9 +57,11 @@ def build_default_router(
             f"exchange={profile.exchange}\n"
             f"timeframe={profile.timeframe}\n"
             f"risk={profile.risk_per_trade_pct}\n"
+            f"rr={profile.rr_ratio}\n"
+            f"max_dd={profile.max_daily_drawdown_pct}\n"
             f"report={profile.position_report_minutes}\n"
             "Для изменения профиля: /start mode=<signal_only|paper|live> "
-            "exchange=<hyperliquid|mexc> timeframe=<1m|5m|15m|1h|4h> risk=<0.1..2.0> report=<5..1440>"
+            "exchange=<hyperliquid|mexc> timeframe=<1m|5m|15m|1h|4h> risk=<0.1..2.0> rr=<1.0..5.0> dd=<1..10> report=<5..1440>"
         )
 
     def help_handler(_: CommandContext, __: str) -> str:
@@ -108,6 +113,36 @@ def build_default_router(
         store.save(updated)
         return f"risk обновлен: {updated.risk_per_trade_pct}"
 
+    def set_rr_handler(ctx: CommandContext, args: str) -> str:
+        profile = store.get_or_create(ctx.user_id, config)
+        raw_rr = args.strip()
+        if not raw_rr:
+            return f"Текущий rr={profile.rr_ratio}. Использование: /set_rr <1.0..5.0>"
+        if not _access_write_allowed(config):
+            return "Режим доступа notify_only: команда недоступна."
+        errors: list[str] = []
+        rr = _parse_rr(raw_rr, errors)
+        if errors:
+            return _format_profile_error(profile, errors)
+        updated = replace(profile, rr_ratio=rr)
+        store.save(updated)
+        return f"rr обновлен: {updated.rr_ratio}"
+
+    def set_dd_handler(ctx: CommandContext, args: str) -> str:
+        profile = store.get_or_create(ctx.user_id, config)
+        raw_dd = args.strip()
+        if not raw_dd:
+            return f"Текущий max_dd={profile.max_daily_drawdown_pct}. Использование: /set_dd <1..10>"
+        if not _access_write_allowed(config):
+            return "Режим доступа notify_only: команда недоступна."
+        errors: list[str] = []
+        max_dd = _parse_max_daily_drawdown(raw_dd, errors)
+        if errors:
+            return _format_profile_error(profile, errors)
+        updated = replace(profile, max_daily_drawdown_pct=max_dd)
+        store.save(updated)
+        return f"max_dd обновлен: {updated.max_daily_drawdown_pct}"
+
     def status_handler(ctx: CommandContext, __: str) -> str:
         profile = store.get_or_create(ctx.user_id, config)
         return (
@@ -117,6 +152,8 @@ def build_default_router(
             f"exchange={profile.exchange}\n"
             f"timeframe={profile.timeframe}\n"
             f"risk={profile.risk_per_trade_pct}\n"
+            f"rr={profile.rr_ratio}\n"
+            f"max_dd={profile.max_daily_drawdown_pct}\n"
             f"report_interval_min={profile.position_report_minutes}"
         )
 
@@ -134,6 +171,8 @@ def build_default_router(
     router.add_route("/mode", mode_handler)
     router.add_route("/set_tf", set_tf_handler)
     router.add_route("/set_risk", set_risk_handler)
+    router.add_route("/set_rr", set_rr_handler)
+    router.add_route("/set_dd", set_dd_handler)
     router.add_route("/status", status_handler)
     router.add_route("/positions", positions_handler)
     router.add_route("/ml_report", ml_report_handler)
@@ -149,6 +188,8 @@ def _apply_start_updates(
         "exchange": profile.exchange,
         "timeframe": profile.timeframe,
         "risk": str(profile.risk_per_trade_pct),
+        "rr": str(profile.rr_ratio),
+        "dd": str(profile.max_daily_drawdown_pct),
         "report": str(profile.position_report_minutes),
     }
     errors: list[str] = []
@@ -170,6 +211,8 @@ def _apply_start_updates(
     if exchange not in {"hyperliquid", "mexc"}:
         errors.append("exchange должен быть hyperliquid|mexc")
     risk_value = _parse_risk(values["risk"], errors)
+    rr_value = _parse_rr(values["rr"], errors)
+    dd_value = _parse_max_daily_drawdown(values["dd"], errors)
     report_value = _parse_report_minutes(values["report"], errors)
     if errors:
         return profile, errors
@@ -180,6 +223,8 @@ def _apply_start_updates(
             exchange=exchange,
             timeframe=timeframe,
             risk_per_trade_pct=risk_value,
+            rr_ratio=rr_value,
+            max_daily_drawdown_pct=dd_value,
             position_report_minutes=report_value,
         ),
         [],
@@ -212,6 +257,28 @@ def _parse_risk(raw: str, errors: list[str]) -> float:
     return value
 
 
+def _parse_rr(raw: str, errors: list[str]) -> float:
+    try:
+        value = float(raw)
+    except ValueError:
+        errors.append("rr должен быть числом")
+        return 0.0
+    if value < 1.0 or value > 5.0:
+        errors.append("rr должен быть в диапазоне 1.0..5.0")
+    return value
+
+
+def _parse_max_daily_drawdown(raw: str, errors: list[str]) -> float:
+    try:
+        value = float(raw)
+    except ValueError:
+        errors.append("dd должен быть числом")
+        return 0.0
+    if value <= 0 or value > 10:
+        errors.append("dd должен быть в диапазоне 1..10")
+    return value
+
+
 def _access_write_allowed(config: EnvironmentConfig) -> bool:
     return config.bot.access_mode.strip().lower() == "full_access"
 
@@ -233,5 +300,6 @@ def _format_profile_error(profile: TelegramUserProfile, errors: list[str]) -> st
         f"Ошибка обновления профиля: {joined}\n"
         f"Текущий профиль: mode={profile.mode} exchange={profile.exchange} "
         f"timeframe={profile.timeframe} risk={profile.risk_per_trade_pct} "
+        f"rr={profile.rr_ratio} max_dd={profile.max_daily_drawdown_pct} "
         f"report={profile.position_report_minutes}"
     )

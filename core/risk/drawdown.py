@@ -24,13 +24,19 @@ class DailyDrawdownGuard:
         self.max_daily_drawdown_pct = float(max_daily_drawdown_pct)
         self.state_cache = state_cache or StateCache("runtime/risk_state.json")
 
-    def evaluate(self, user_id: int, current_equity: float) -> DailyDrawdownCheck:
+    def evaluate(
+        self,
+        user_id: int,
+        current_equity: float,
+        max_daily_drawdown_pct: float | None = None,
+    ) -> DailyDrawdownCheck:
+        limit_pct = self.max_daily_drawdown_pct if max_daily_drawdown_pct is None else float(max_daily_drawdown_pct)
         equity = float(current_equity)
         if equity <= 0:
             return DailyDrawdownCheck(
                 allowed=False,
                 drawdown_pct=0.0,
-                max_drawdown_pct=self.max_daily_drawdown_pct,
+                max_drawdown_pct=limit_pct,
                 reason="invalid_equity",
                 start_equity=equity,
                 current_equity=equity,
@@ -47,7 +53,7 @@ class DailyDrawdownGuard:
                 start_equity = equity
         safe_start = max(start_equity, 1e-9)
         drawdown_pct = max(0.0, ((safe_start - equity) / safe_start) * 100.0)
-        allowed = drawdown_pct <= self.max_daily_drawdown_pct
+        allowed = drawdown_pct <= limit_pct
         reason = "ok" if allowed else "max_daily_drawdown_exceeded"
         self.state_cache.set(
             state_key,
@@ -62,7 +68,7 @@ class DailyDrawdownGuard:
         return DailyDrawdownCheck(
             allowed=allowed,
             drawdown_pct=drawdown_pct,
-            max_drawdown_pct=self.max_daily_drawdown_pct,
+            max_drawdown_pct=limit_pct,
             reason=reason,
             start_equity=start_equity,
             current_equity=equity,
