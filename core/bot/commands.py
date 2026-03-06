@@ -14,6 +14,7 @@ from core.ml.inference import MlSignalFilter
 from core.bot.reporter import MiniBacktestReporter
 from core.bot.reporter import MlQualityReporter
 from core.bot.reporter import PositionReporter
+from core.bot.news_engine import NewsRiskGate
 from core.risk import RiskManager
 
 
@@ -243,6 +244,26 @@ def build_default_router(
         lines.append("Подсказка: /mode live, затем проверь /status.")
         return "\n".join(lines)
 
+    def news_handler(_: CommandContext, __: str) -> str:
+        source = os.getenv("NEWS_SOURCE", "t.me/cryptoarsenal").strip()
+        enabled = bool(os.getenv("NEWS_FILTER_ENABLED", "1"))
+        keywords = tuple(
+            item.strip()
+            for item in os.getenv(
+                "NEWS_RISK_KEYWORDS",
+                "hack,exploit,bankrupt,bankruptcy,liquidation,delist,lawsuit,outage",
+            ).split(",")
+            if item.strip()
+        )
+        gate = NewsRiskGate(source=source, keywords=keywords, min_block_score=int(os.getenv("NEWS_BLOCK_MIN_SCORE", "1")))
+        return (
+            "📰 News engine\n"
+            f"source={gate.source}\n"
+            f"enabled={enabled}\n"
+            f"keywords={','.join(gate.keywords)}\n"
+            f"min_block_score={gate.min_block_score}"
+        )
+
     def positions_handler(ctx: CommandContext, __: str) -> dict:
         profile = store.get_or_create(ctx.user_id, config)
         text = PositionReporter().build_report(profile)
@@ -439,6 +460,7 @@ def build_default_router(
     router.add_route("/mode_menu", mode_menu_handler)
     router.add_route("/positions", positions_handler)
     router.add_route("/ml_report", ml_report_handler)
+    router.add_route("/news", news_handler)
     router.add_route("/readiness", readiness_handler)
     router.add_route("/risk", risk_menu_handler)
     router.add_route("/risk_risk", risk_risk_handler)
@@ -517,8 +539,8 @@ def _main_menu_inline() -> tuple[tuple[tuple[str, str], ...], ...]:
         (("📊 Статус", "/status"), ("📍 Позиции", "/positions")),
         (("⏱ Таймфрейм", "/tf_menu"), ("🛡 Риск и RR", "/risk")),
         (("🤖 Режим", "/mode_menu"), ("🧪 Mini-backtest", "/backtest")),
-        (("🧠 ML отчет", "/ml_report"), ("🧭 Live readiness", "/readiness")),
-        (("❓ Помощь", "/help"),),
+        (("🧠 ML отчет", "/ml_report"), ("📰 News", "/news")),
+        (("🧭 Live readiness", "/readiness"), ("❓ Помощь", "/help")),
     )
 
 

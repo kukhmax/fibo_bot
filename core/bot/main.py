@@ -8,6 +8,7 @@ import sys
 from core.bot.commands import build_default_router
 from core.bot.alerts import RiskAlertNotifier
 from core.bot.health import health_snapshot_dict
+from core.bot.news_engine import NewsRiskGate
 from core.bot.profile import TelegramUserProfileStore
 from core.bot.runtime import TelegramBotRuntime
 from core.bot.telegram_transport import TelegramApiTransport
@@ -105,6 +106,19 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
     whitelist_symbols = _parse_whitelist_symbols(os.getenv("WHITELIST_SYMBOLS", "BTCUSDT,ETHUSDT,SOLUSDT"))
     min_avg_volume = float(os.getenv("WL_MIN_AVG_VOLUME", "50"))
     max_avg_spread_pct = float(os.getenv("WL_MAX_AVG_SPREAD_PCT", "5.0"))
+    news_filter_enabled = bool(os.getenv("NEWS_FILTER_ENABLED", "1"))
+    news_gate = NewsRiskGate(
+        source=os.getenv("NEWS_SOURCE", "t.me/cryptoarsenal"),
+        keywords=tuple(
+            item.strip()
+            for item in os.getenv(
+                "NEWS_RISK_KEYWORDS",
+                "hack,exploit,bankrupt,bankruptcy,liquidation,delist,lawsuit,outage",
+            ).split(",")
+            if item.strip()
+        ),
+        min_block_score=int(os.getenv("NEWS_BLOCK_MIN_SCORE", "1")),
+    )
 
     async def on_candle(candle):
         regime_window.append(candle)
@@ -117,6 +131,33 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
         decision = strategies[strategy_name].on_candle(candle)
         if decision.action != "entry":
             return
+        if news_filter_enabled:
+            headline = os.getenv("NEWS_HEADLINE", "")
+            news_decision = news_gate.evaluate(headline)
+            if news_decision.blocked:
+                state = store._cache.load()
+                for key, payload in state.items():
+                    if not isinstance(key, str) or not key.startswith("profile:"):
+                        continue
+                    try:
+                        user_id = int(key.split(":", 1)[1])
+                    except Exception:
+                        continue
+                    mode = str(payload.get("mode", "signal_only")).lower()
+                    if mode not in {"signal_only", "paper"}:
+                        continue
+                    transport.send_text(
+                        chat_id=user_id,
+                        text=f"risk_blocked: news_filter={news_decision.reason}",
+                    )
+                    risk_alert_notifier.maybe_send(
+                        transport=transport,
+                        chat_id=user_id,
+                        user_id=user_id,
+                        code="NEWS_FILTER_BLOCK",
+                        details=news_decision.reason,
+                    )
+                return
         symbol_allowed, symbol_reason = _passes_asset_whitelist(
             symbol=str(candle.symbol),
             volume=float(candle.volume),

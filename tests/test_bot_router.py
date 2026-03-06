@@ -257,6 +257,15 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         self.assertIn("✅ Режим live активирован", result.response_text)
         self.assertIn("✅ Ключи Hyperliquid заданы", result.response_text)
 
+    async def test_news_command_returns_news_engine_status(self) -> None:
+        config = load_environment_config("dev")
+        router = build_default_router(config, profile_store=self._store)
+        with patch.dict("os.environ", {"NEWS_SOURCE": "t.me/cryptoarsenal", "NEWS_FILTER_ENABLED": "1"}, clear=False):
+            result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/news"))
+        self.assertTrue(result.handled)
+        self.assertIn("News engine", result.response_text)
+        self.assertIn("source=t.me/cryptoarsenal", result.response_text)
+
     async def test_backtest_menu_returns_inline_keyboard(self) -> None:
         config = load_environment_config("dev")
         router = build_default_router(config, profile_store=self._store)

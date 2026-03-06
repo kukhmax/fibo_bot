@@ -797,6 +797,19 @@ Commit: `c1e7592`
 
 ---
 
+Дата/время (UTC): 2026-03-06  
+Подэтап: `E7.7`  
+Что сделано: Добавлен базовый news-engine и интегрирован новостной risk-gate в сигнал-контур.  
+Какие файлы изменены: `core/bot/news_engine.py`, `core/bot/main.py`, `core/bot/commands.py`, `tests/test_news_engine.py`, `tests/test_signal_pipeline_resilience.py`, `tests/test_bot_router.py`, `DEVELOP.md`  
+Реализованная логика: Реализован `NewsRiskGate` с keyword-based оценкой headline. В runtime добавлена блокировка входов при повышенном новостном риске (`NEWS_FILTER_ENABLED`, `NEWS_HEADLINE`, `NEWS_RISK_KEYWORDS`, `NEWS_BLOCK_MIN_SCORE`) с отправкой `risk_blocked: news_filter=...`. Добавлена команда `/news` для проверки статуса и конфигурации news engine в Telegram.  
+Команды: `python -m unittest tests.test_news_engine tests.test_bot_router tests.test_signal_pipeline_resilience -v`, полный регресс `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot tests.test_candle_builder tests.test_data_quality tests.test_data_fallback tests.test_ws_runtime tests.test_realtime_candle_pipeline tests.test_mexc_ws_adapter tests.test_persistence tests.test_bot_router tests.test_bot_profile_store tests.test_telegram_transport tests.test_reports_scheduler tests.test_strategy_selector tests.test_strategy_trend_pullback tests.test_strategy_volatility_breakout tests.test_strategy_liquidity_sweep tests.test_regime_classifier tests.test_ml_history_pipeline tests.test_feature_dataset_builder tests.test_ml_dataset_builder tests.test_ml_labeling tests.test_ml_training tests.test_ml_inference tests.test_risk_manager tests.test_risk_drawdown tests.test_risk_alerts tests.test_backtest_history tests.test_backtest_mini_runner tests.test_backtest_reporter tests.test_integration_user_flows tests.test_integration_multi_asset_backtest tests.test_signal_pipeline_resilience tests.test_news_engine -v`  
+Тесты: Прогнано 125 unit/integration тестов, все успешны.  
+Как проверено: Подтверждено срабатывание новостного блока в runtime и корректная работа `/news`, регрессий не выявлено.  
+Результат: Подэтап `E7.7` завершен, базовый news-risk фильтр активирован в рабочем контуре.  
+Commit: будет добавлен после фиксации изменений в git.
+
+---
+
 ## 5) TODO после MVP (согласовано)
 
-- Добавить полноценный news-engine (временный ориентир: t.me/cryptoarsenal).
+- Расширить news-engine до полноценных внешних источников и классификации тональности.
