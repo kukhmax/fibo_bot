@@ -120,7 +120,7 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
         min_block_score=int(os.getenv("NEWS_BLOCK_MIN_SCORE", "1")),
     )
 
-    async def on_candle(candle):
+    async def on_candle(candle, runtime_symbol: str, runtime_timeframe: str):
         regime_window.append(candle)
         ml_window.append(candle)
         regime = classifier.classify(list(regime_window))
@@ -206,6 +206,8 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
             mode = str(payload.get("mode", "signal_only")).lower()
             if mode not in {"signal_only", "paper"}:
                 continue
+            if not _profile_has_pair(payload, runtime_symbol, runtime_timeframe):
+                continue
             raw_risk = payload.get("risk_per_trade_pct", config_env.risk.risk_per_trade_pct)
             try:
                 risk_value = float(raw_risk)
@@ -281,7 +283,7 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
                 )
                 continue
             text = (
-                f"[{decision.strategy}] {decision.direction} {symbol} {timeframe}\n"
+                f"[{decision.strategy}] {decision.direction} {runtime_symbol} {runtime_timeframe}\n"
                 f"regime={regime.label} confidence={regime.confidence}\n"
                 f"ml_prob={ml_probability}\n"
                 f"risk_per_trade_pct={risk_check.risk_per_trade_pct}\n"
@@ -295,21 +297,90 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
                 payload["open_positions_count"] = min(max_open_positions, open_positions_count + 1)
                 store._cache.set(key, payload)
 
-    pipeline = RealtimeCandlePipeline(symbol=symbol, timeframe=timeframe, on_candle=on_candle)
+    async def run_pipeline_for_pair(pair_symbol: str, pair_timeframe: str):
+        async def callback(candle):
+            await on_candle(candle, pair_symbol, pair_timeframe)
 
-    async def run_pipeline():
+        pipeline = RealtimeCandlePipeline(symbol=pair_symbol, timeframe=pair_timeframe, on_candle=callback)
         while True:
             try:
                 await pipeline.run()
             except Exception:
                 await asyncio.sleep(1)
 
-    await asyncio.gather(_run_runtime(runtime, once=False), run_pipeline())
+    async def run_multipair_pipelines():
+        tasks: dict[tuple[str, str], asyncio.Task] = {}
+        while True:
+            desired_pairs = _collect_runtime_pairs(store=store, default_symbol=symbol, default_timeframe=timeframe)
+            for pair in desired_pairs:
+                if pair not in tasks:
+                    pair_symbol, pair_timeframe = pair
+                    print(f"bot_runtime: pipeline_started symbol={pair_symbol} timeframe={pair_timeframe}")
+                    tasks[pair] = asyncio.create_task(run_pipeline_for_pair(pair_symbol, pair_timeframe))
+            for pair in tuple(tasks.keys()):
+                if pair in desired_pairs:
+                    continue
+                task = tasks.pop(pair)
+                task.cancel()
+                print(f"bot_runtime: pipeline_stopped symbol={pair[0]} timeframe={pair[1]}")
+            for pair, task in tuple(tasks.items()):
+                if not task.done():
+                    continue
+                exc = task.exception()
+                tasks.pop(pair, None)
+                if exc is not None:
+                    raise exc
+            await asyncio.sleep(5)
+
+    await asyncio.gather(_run_runtime(runtime, once=False), run_multipair_pipelines())
 
 
 def _parse_whitelist_symbols(raw: str) -> set[str]:
     items = {part.strip().upper() for part in raw.split(",") if part.strip()}
     return items
+
+
+def _collect_runtime_pairs(
+    store: TelegramUserProfileStore,
+    default_symbol: str,
+    default_timeframe: str,
+) -> set[tuple[str, str]]:
+    state = store._cache.load()
+    pairs: set[tuple[str, str]] = set()
+    for key, payload in state.items():
+        if not isinstance(key, str) or not key.startswith("profile:"):
+            continue
+        if not isinstance(payload, dict):
+            continue
+        for symbol, timeframe in _extract_profile_pairs(payload):
+            pairs.add((symbol, timeframe))
+    if not pairs:
+        pairs.add((default_symbol.strip().upper(), default_timeframe.strip().lower()))
+    return pairs
+
+
+def _extract_profile_pairs(payload: dict[str, object]) -> set[tuple[str, str]]:
+    raw = payload.get("trading_pairs")
+    pairs: set[tuple[str, str]] = set()
+    if isinstance(raw, list):
+        for item in raw:
+            if not isinstance(item, dict):
+                continue
+            symbol = str(item.get("symbol", "")).strip().upper()
+            timeframe = str(item.get("timeframe", "")).strip().lower()
+            if symbol and timeframe:
+                pairs.add((symbol, timeframe))
+    if pairs:
+        return pairs
+    symbol = str(payload.get("symbol", "BTCUSDT")).strip().upper()
+    timeframe = str(payload.get("timeframe", "5m")).strip().lower()
+    if symbol and timeframe:
+        pairs.add((symbol, timeframe))
+    return pairs
+
+
+def _profile_has_pair(payload: dict[str, object], symbol: str, timeframe: str) -> bool:
+    return (symbol.strip().upper(), timeframe.strip().lower()) in _extract_profile_pairs(payload)
 
 
 def _passes_asset_whitelist(

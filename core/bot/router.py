@@ -76,6 +76,8 @@ class CommandRouter:
                 "🧭 Readiness": "/readiness",
                 "🙈 Скрыть меню": "/hide_menu",
                 "🏠 Меню": "/menu",
+                "➕ Добавить пару": "/pair_add",
+                "➖ Удалить пару": "/pair_remove",
                 "⚡ TF 1m": "/set_tf 1m",
                 "🚀 TF 5m": "/set_tf 5m",
                 "📘 TF 15m": "/set_tf 15m",
@@ -100,7 +102,7 @@ class CommandRouter:
             }
             mapped = quick_map.get(_normalize_menu_text(stripped))
             if mapped is None:
-                return None, ""
+                return "/text", stripped
             stripped = mapped
         parts = stripped.split(maxsplit=1)
         command = self._normalize(parts[0].split("@", 1)[0])

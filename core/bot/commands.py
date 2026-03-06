@@ -16,6 +16,7 @@ from core.bot.reporter import MiniBacktestReporter
 from core.bot.reporter import MlQualityReporter
 from core.bot.reporter import PositionReporter
 from core.bot.news_engine import NewsRiskGate
+from core.data.persistence import StateCache
 from core.risk import RiskManager
 
 
@@ -33,6 +34,22 @@ def build_default_router(
     router.set_reply_keyboard(_main_menu_reply())
     store = profile_store or TelegramUserProfileStore()
     ml_reporter = MlQualityReporter(artifact_store=ml_artifact_store)
+    pair_flow_state = StateCache("runtime/pair_flow_state.json")
+
+    def _pair_flow_key(user_id: int) -> str:
+        return f"pair_flow:{user_id}"
+
+    def _set_pair_flow(user_id: int, action: str) -> None:
+        pair_flow_state.set(_pair_flow_key(user_id), {"action": action})
+
+    def _get_pair_flow(user_id: int) -> str:
+        payload = pair_flow_state.get(_pair_flow_key(user_id))
+        if not isinstance(payload, dict):
+            return ""
+        return str(payload.get("action", "")).strip().lower()
+
+    def _clear_pair_flow(user_id: int) -> None:
+        pair_flow_state.set(_pair_flow_key(user_id), {})
 
     def start_handler(ctx: CommandContext, args: str) -> dict:
         profile = store.get_or_create(ctx.user_id, config)
@@ -226,20 +243,27 @@ def build_default_router(
             f"🔔 Интервал отчета: {profile.position_report_minutes} мин"
         )
 
-    def pairs_handler(ctx: CommandContext, __: str) -> str:
+    def pairs_handler(ctx: CommandContext, __: str) -> dict:
         profile = store.get_or_create(ctx.user_id, config)
         lines = ["🧩 Торговые пары", "━━━━━━━━━━━━━━"]
         for index, pair in enumerate(profile.trading_pairs, start=1):
             lines.append(f"{index}) {pair.symbol} • {pair.timeframe}")
         lines.append("")
-        lines.append("Добавить: /pair_add BTCUSDT 5m")
-        lines.append("Удалить: /pair_remove BTCUSDT")
-        return "\n".join(lines)
+        lines.append("Нажми кнопку ниже:")
+        inline = ((( "➕ Добавить пару", "/pair_add"), ("➖ Удалить пару", "/pair_remove")),)
+        return {"text": "\n".join(lines), "inline_keyboard": inline}
 
     def pair_add_handler(ctx: CommandContext, args: str) -> str:
         profile = store.get_or_create(ctx.user_id, config)
         if not _access_write_allowed(config):
             return "Режим доступа notify_only: команда недоступна."
+        if not args.strip():
+            _set_pair_flow(ctx.user_id, "await_pair_add")
+            return (
+                "➕ Добавление пары\n"
+                "Введи одним сообщением: SYMBOL TIMEFRAME\n"
+                "Пример: BTCUSDT 5m"
+            )
         symbol, timeframe, errors = _parse_pair_args(args)
         if errors:
             return _format_profile_error(profile, errors)
@@ -248,23 +272,44 @@ def build_default_router(
         updated_pairs = tuple(merged[key] for key in sorted(merged))
         updated = replace(profile, trading_pairs=updated_pairs)
         store.save(updated)
+        _clear_pair_flow(ctx.user_id)
         return f"✅ Пара добавлена: {symbol} • {timeframe}\nВсего пар: {len(updated_pairs)}"
 
-    def pair_remove_handler(ctx: CommandContext, args: str) -> str:
+    def pair_remove_handler(ctx: CommandContext, args: str) -> dict:
         profile = store.get_or_create(ctx.user_id, config)
         if not _access_write_allowed(config):
-            return "Режим доступа notify_only: команда недоступна."
+            return {"text": "Режим доступа notify_only: команда недоступна."}
+        if not args.strip():
+            buttons: list[tuple[str, str]] = []
+            for pair in profile.trading_pairs:
+                buttons.append((f"❌ {pair.symbol} • {pair.timeframe}", f"/pair_delete {pair.symbol}"))
+            if not buttons:
+                return {"text": "Список пар пуст."}
+            inline = tuple((item,) for item in buttons)
+            return {"text": "➖ Удаление пары\nВыбери пару для удаления:", "inline_keyboard": inline}
         symbol = args.strip().upper()
         if not symbol:
-            return "Укажи пару: /pair_remove BTCUSDT"
+            return {"text": "Укажи пару: /pair_remove BTCUSDT"}
         current = [item for item in profile.trading_pairs if item.symbol != symbol]
         if len(current) == len(profile.trading_pairs):
-            return f"Пара не найдена: {symbol}"
+            return {"text": f"Пара не найдена: {symbol}"}
         if not current:
             current = [TradingPairSettings(symbol="BTCUSDT", timeframe=profile.timeframe)]
         updated = replace(profile, trading_pairs=tuple(current))
         store.save(updated)
-        return f"✅ Пара удалена: {symbol}\nОсталось пар: {len(updated.trading_pairs)}"
+        return {"text": f"✅ Пара удалена: {symbol}\nОсталось пар: {len(updated.trading_pairs)}"}
+
+    def pair_delete_handler(ctx: CommandContext, args: str) -> dict:
+        return pair_remove_handler(ctx, args)
+
+    def text_handler(ctx: CommandContext, args: str) -> str:
+        action = _get_pair_flow(ctx.user_id)
+        if action != "await_pair_add":
+            return "Команда не распознана."
+        symbol, timeframe, errors = _parse_pair_args(args)
+        if errors:
+            return "Неверный формат. Введи так: BTCUSDT 5m"
+        return pair_add_handler(ctx, f"{symbol} {timeframe}")
 
     def readiness_handler(ctx: CommandContext, __: str) -> str:
         profile = store.get_or_create(ctx.user_id, config)
@@ -497,6 +542,8 @@ def build_default_router(
     router.add_route("/pairs", pairs_handler)
     router.add_route("/pair_add", pair_add_handler)
     router.add_route("/pair_remove", pair_remove_handler)
+    router.add_route("/pair_delete", pair_delete_handler)
+    router.add_route("/text", text_handler)
     router.add_route("/set_tf", set_tf_handler)
     router.add_route("/set_risk", set_risk_handler)
     router.add_route("/set_rr", set_rr_handler)

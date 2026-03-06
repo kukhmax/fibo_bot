@@ -230,6 +230,19 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         self.assertIn("ETHUSDT • 15m", listed.response_text)
         self.assertIn("Пара удалена: ETHUSDT", removed.response_text)
 
+    async def test_pairs_button_flow_add_and_delete(self) -> None:
+        config = load_environment_config("dev")
+        router = build_default_router(config, profile_store=self._store)
+        add_prompt = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="➕ Добавить пару"))
+        self.assertIn("Введи одним сообщением", add_prompt.response_text)
+        add_from_text = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="SOLUSDT 1m"))
+        self.assertIn("Пара добавлена: SOLUSDT", add_from_text.response_text)
+        remove_menu = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="➖ Удалить пару"))
+        self.assertIsNotNone(remove_menu.inline_keyboard)
+        assert remove_menu.inline_keyboard is not None
+        callbacks = [cb for row in remove_menu.inline_keyboard for (_title, cb) in row]
+        self.assertIn("/pair_delete SOLUSDT", callbacks)
+
     async def test_hide_menu_removes_reply_keyboard(self) -> None:
         config = load_environment_config("dev")
         router = build_default_router(config, profile_store=self._store)
