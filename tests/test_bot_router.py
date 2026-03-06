@@ -19,7 +19,14 @@ from core.ml.trainer import TrainingReport
 class _FakeTransport:
     def __init__(self, updates: list[IncomingMessage]) -> None:
         self._updates = list(updates)
-        self.sent_messages: list[tuple[int, str, tuple[tuple[str, ...], ...] | None, tuple[tuple[tuple[str, str], ...], ...] | None]] = []
+        self.sent_messages: list[
+            tuple[
+                int,
+                str,
+                tuple[tuple[str, ...], ...] | None,
+                tuple[tuple[tuple[str, str], ...], ...] | None,
+            ]
+        ] = []
 
     def fetch_updates(self, offset: int | None = None, limit: int = 50) -> list[IncomingMessage]:
         if offset is None:
@@ -64,11 +71,10 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         status = await router.dispatch(CommandContext(chat_id=1, user_id=2, text="/status"))
         self.assertTrue(start.handled)
         self.assertTrue(status.handled)
-        self.assertIn("fib_bot готов", start.response_text)
-        self.assertIn("online", status.response_text)
-        self.assertIn("mode=", status.response_text)
-        self.assertIsNotNone(start.reply_keyboard)
-        self.assertIn("/status", start.reply_keyboard[0])
+        self.assertIn("Добро пожаловать", start.response_text)
+        self.assertIn("Текущий статус", status.response_text)
+        self.assertIn("Режим", status.response_text)
+        self.assertIsNotNone(start.inline_keyboard)
 
     async def test_start_updates_master_profile(self) -> None:
         config = load_environment_config("dev")
@@ -82,11 +88,11 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         )
         status = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/status"))
         self.assertTrue(updated.handled)
-        self.assertIn("mode=paper", updated.response_text)
-        self.assertIn("exchange=mexc", status.response_text)
-        self.assertIn("timeframe=15m", status.response_text)
-        self.assertIn("risk=1.5", status.response_text)
-        self.assertIn("report_interval_min=30", status.response_text)
+        self.assertIn("Режим: paper", updated.response_text)
+        self.assertIn("Биржа: mexc", status.response_text)
+        self.assertIn("Таймфрейм: 15m", status.response_text)
+        self.assertIn("Риск: 1.5%", status.response_text)
+        self.assertIn("Интервал отчета: 30", status.response_text)
 
     async def test_start_rejects_invalid_profile_values(self) -> None:
         config = load_environment_config("dev")
@@ -100,24 +106,24 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         router = build_default_router(config, profile_store=self._store)
         mode_result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/mode paper"))
         status_result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/status"))
-        self.assertIn("mode обновлен: paper", mode_result.response_text)
-        self.assertIn("mode=paper", status_result.response_text)
+        self.assertIn("Режим обновлен: paper", mode_result.response_text)
+        self.assertIn("Режим: paper", status_result.response_text)
 
     async def test_set_tf_command_updates_profile(self) -> None:
         config = load_environment_config("dev")
         router = build_default_router(config, profile_store=self._store)
         tf_result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/set_tf 15m"))
         status_result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/status"))
-        self.assertIn("timeframe обновлен: 15m", tf_result.response_text)
-        self.assertIn("timeframe=15m", status_result.response_text)
+        self.assertIn("Таймфрейм обновлен: 15m", tf_result.response_text)
+        self.assertIn("Таймфрейм: 15m", status_result.response_text)
 
     async def test_set_risk_command_updates_profile(self) -> None:
         config = load_environment_config("dev")
         router = build_default_router(config, profile_store=self._store)
         risk_result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/set_risk 1.2"))
         status_result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/status"))
-        self.assertIn("risk обновлен: 1.2", risk_result.response_text)
-        self.assertIn("risk=1.2", status_result.response_text)
+        self.assertIn("Риск на сделку обновлен: 1.2%", risk_result.response_text)
+        self.assertIn("Риск: 1.2%", status_result.response_text)
 
     async def test_set_risk_command_rejects_invalid_value(self) -> None:
         config = load_environment_config("dev")
@@ -131,24 +137,24 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         router = build_default_router(config, profile_store=self._store)
         rr_result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/set_rr 2.5"))
         status_result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/status"))
-        self.assertIn("rr обновлен: 2.5", rr_result.response_text)
-        self.assertIn("rr=2.5", status_result.response_text)
+        self.assertIn("Risk/Reward обновлен: 2.5", rr_result.response_text)
+        self.assertIn("RR: 2.5", status_result.response_text)
 
     async def test_set_dd_command_updates_profile(self) -> None:
         config = load_environment_config("dev")
         router = build_default_router(config, profile_store=self._store)
         dd_result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/set_dd 8"))
         status_result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/status"))
-        self.assertIn("max_dd обновлен: 8.0", dd_result.response_text)
-        self.assertIn("max_dd=8.0", status_result.response_text)
+        self.assertIn("Лимит дневной просадки обновлен: 8.0%", dd_result.response_text)
+        self.assertIn("DD: 8.0%", status_result.response_text)
 
     async def test_set_maxpos_command_updates_profile(self) -> None:
         config = load_environment_config("dev")
         router = build_default_router(config, profile_store=self._store)
         maxpos_result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/set_maxpos 3"))
         status_result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/status"))
-        self.assertIn("max_pos обновлен: 3", maxpos_result.response_text)
-        self.assertIn("max_pos=3", status_result.response_text)
+        self.assertIn("Лимит открытых позиций обновлен: 3", maxpos_result.response_text)
+        self.assertIn("Макс. позиций: 3", status_result.response_text)
 
     async def test_set_sl_tp_commands_update_profile(self) -> None:
         config = load_environment_config("dev")
@@ -156,10 +162,10 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         sl_result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/set_sl 0.8"))
         tp_result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/set_tp 1.6"))
         status_result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/status"))
-        self.assertIn("sl обновлен: 0.8", sl_result.response_text)
-        self.assertIn("tp обновлен: 1.6", tp_result.response_text)
-        self.assertIn("sl=0.8", status_result.response_text)
-        self.assertIn("tp=1.6", status_result.response_text)
+        self.assertIn("Стоп-лосс обновлен: 0.8%", sl_result.response_text)
+        self.assertIn("Тейк-профит обновлен: 1.6%", tp_result.response_text)
+        self.assertIn("SL: 0.8%", status_result.response_text)
+        self.assertIn("TP: 1.6%", status_result.response_text)
 
     async def test_close_command_decrements_open_positions(self) -> None:
         config = load_environment_config("dev")
@@ -169,14 +175,14 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         close_result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/close"))
         status_result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/status"))
         self.assertIn("Позиция закрыта", close_result.response_text)
-        self.assertIn("open_pos=1", status_result.response_text)
+        self.assertIn("Открытых позиций: 1", status_result.response_text)
 
     async def test_risk_menu_returns_inline_keyboard(self) -> None:
         config = load_environment_config("dev")
         router = build_default_router(config, profile_store=self._store)
         result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/risk"))
         self.assertTrue(result.handled)
-        self.assertIn("Risk меню", result.response_text)
+        self.assertIn("Меню риска", result.response_text)
         self.assertIsNotNone(result.inline_keyboard)
         assert result.inline_keyboard is not None
         callbacks = [callback for row in result.inline_keyboard for (_text, callback) in row]
@@ -187,6 +193,30 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         self.assertIn("/set_sl 0.5", callbacks)
         self.assertIn("/set_tp 1.0", callbacks)
         self.assertIn("/close", callbacks)
+
+    async def test_menu_has_human_friendly_buttons(self) -> None:
+        config = load_environment_config("dev")
+        router = build_default_router(config, profile_store=self._store)
+        result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/menu"))
+        self.assertTrue(result.handled)
+        self.assertIn("Главное меню", result.response_text)
+        self.assertIsNotNone(result.inline_keyboard)
+        assert result.inline_keyboard is not None
+        labels = [title for row in result.inline_keyboard for (title, _callback) in row]
+        self.assertTrue(any("⏱" in item for item in labels))
+        self.assertTrue(any("🛡" in item for item in labels))
+
+    async def test_tf_menu_returns_timeframe_buttons(self) -> None:
+        config = load_environment_config("dev")
+        router = build_default_router(config, profile_store=self._store)
+        result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/tf_menu"))
+        self.assertTrue(result.handled)
+        self.assertIn("Выбор таймфрейма", result.response_text)
+        self.assertIsNotNone(result.inline_keyboard)
+        assert result.inline_keyboard is not None
+        callbacks = [callback for row in result.inline_keyboard for (_text, callback) in row]
+        self.assertIn("/set_tf 1m", callbacks)
+        self.assertIn("/set_tf 4h", callbacks)
 
     async def test_backtest_menu_returns_inline_keyboard(self) -> None:
         config = load_environment_config("dev")
@@ -242,7 +272,7 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         status = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/status"))
         self.assertIn("notify_only", blocked_mode.response_text)
         self.assertIn("notify_only", blocked_risk.response_text)
-        self.assertIn("mode=signal_only", status.response_text)
+        self.assertIn("Режим: signal_only", status.response_text)
 
     async def test_runtime_fetches_updates_and_sends_responses(self) -> None:
         config = load_environment_config("dev")
@@ -260,7 +290,7 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(transport.sent_messages), 2)
         self.assertIn("/start", transport.sent_messages[0][1])
         self.assertIn("Неизвестная команда", transport.sent_messages[1][1])
-        self.assertIsNotNone(transport.sent_messages[0][2])
+        self.assertIsNone(transport.sent_messages[0][2])
         self.assertIsNone(transport.sent_messages[0][3])
 
     async def test_ml_report_returns_not_found_without_artifact(self) -> None:

@@ -16,19 +16,6 @@ from core.bot.reporter import PositionReporter
 from core.risk import RiskManager
 
 
-COMMAND_KEYBOARD: tuple[tuple[str, ...], ...] = (
-    ("/start", "/status", "/help"),
-    ("/mode signal_only", "/mode paper", "/mode live"),
-    ("/set_tf 1m", "/set_tf 5m", "/set_tf 15m"),
-    ("/set_tf 1h", "/set_tf 4h"),
-    ("/set_risk 0.5", "/set_risk 1.0", "/set_risk 1.5"),
-    ("/set_rr 1.5", "/set_rr 2.0"),
-    ("/set_dd 5", "/set_dd 10"),
-    ("/set_maxpos 1", "/set_maxpos 2", "/set_maxpos 3"),
-    ("/set_sl 0.5", "/set_tp 1.0", "/close"),
-    ("/positions", "/ml_report", "/risk"),
-    ("/backtest",),
-)
 RISK_MANAGER = RiskManager()
 BACKTEST_SYMBOLS: tuple[str, ...] = ("BTCUSDT", "ETHUSDT", "SOLUSDT")
 BACKTEST_TIMEFRAMES: tuple[str, ...] = ("1m", "5m", "15m", "1h")
@@ -42,53 +29,51 @@ def build_default_router(
     router = CommandRouter()
     store = profile_store or TelegramUserProfileStore()
     ml_reporter = MlQualityReporter(artifact_store=ml_artifact_store)
-    router.set_reply_keyboard(COMMAND_KEYBOARD)
 
-    def start_handler(ctx: CommandContext, args: str) -> str:
+    def start_handler(ctx: CommandContext, args: str) -> dict:
         profile = store.get_or_create(ctx.user_id, config)
         if args.strip():
             if not _access_write_allowed(config):
-                return (
-                    "Режим доступа notify_only: изменение настроек запрещено.\n"
-                    f"Текущий профиль: mode={profile.mode} exchange={profile.exchange} "
-                    f"timeframe={profile.timeframe} risk={profile.risk_per_trade_pct} "
-                    f"rr={profile.rr_ratio} max_dd={profile.max_daily_drawdown_pct} "
-                    f"max_pos={profile.max_open_positions} "
-                    f"sl={profile.sl_pct} tp={profile.tp_pct} open_pos={profile.open_positions_count} "
-                    f"report={profile.position_report_minutes}"
-                )
+                return {"text": "🔒 Сейчас только режим уведомлений, менять настройки нельзя.", "inline_keyboard": _main_menu_inline()}
             updated, errors = _apply_start_updates(profile, args)
             if errors:
-                return _format_profile_error(profile, errors)
+                return {"text": _format_profile_error(profile, errors), "inline_keyboard": _main_menu_inline()}
             store.save(updated)
             profile = updated
-        return (
-            "fib_bot готов.\n"
-            f"env={config.environment}\n"
-            f"mode={profile.mode}\n"
-            f"exchange={profile.exchange}\n"
-            f"timeframe={profile.timeframe}\n"
-            f"risk={profile.risk_per_trade_pct}\n"
-            f"rr={profile.rr_ratio}\n"
-            f"max_dd={profile.max_daily_drawdown_pct}\n"
-            f"max_pos={profile.max_open_positions}\n"
-            f"sl={profile.sl_pct}\n"
-            f"tp={profile.tp_pct}\n"
-            f"open_pos={profile.open_positions_count}\n"
-            f"report={profile.position_report_minutes}\n"
-            "Для изменения профиля: /start mode=<signal_only|paper|live> "
-            "exchange=<hyperliquid|mexc> timeframe=<1m|5m|15m|1h|4h> risk=<0.1..2.0> rr=<1.0..5.0> dd=<1..10> maxpos=<1..10> sl=<0.1..20> tp=<0.1..50> report=<5..1440>"
+        text = (
+            "👋 Добро пожаловать в Fibo Bot\n"
+            "Я помогу настроить сигналы и риск простыми шагами.\n\n"
+            f"📌 Режим: {profile.mode}\n"
+            f"📈 Биржа: {profile.exchange}\n"
+            f"⏱ Таймфрейм: {profile.timeframe}\n"
+            f"🛡 Риск на сделку: {profile.risk_per_trade_pct}%\n"
+            f"🎯 Risk/Reward: {profile.rr_ratio}\n"
+            f"🚫 Дневная просадка: {profile.max_daily_drawdown_pct}%\n"
+            f"📦 Макс. открытых позиций: {profile.max_open_positions}\n"
+            f"🧯 Стоп-лосс: {profile.sl_pct}%\n"
+            f"💰 Тейк-профит: {profile.tp_pct}%\n"
+            f"🔔 Отчёт каждые: {profile.position_report_minutes} мин\n\n"
+            "Выбери действие кнопками ниже 👇"
         )
+        return {"text": text, "inline_keyboard": _main_menu_inline(), "reply_keyboard": ()}
 
     def help_handler(_: CommandContext, __: str) -> str:
-        commands = ", ".join(router.available_commands())
-        return f"Доступные команды: {commands}\nКнопки снизу дублируют команды и настройки."
+        return (
+            "❓ Как пользоваться ботом\n"
+            "1) Нажми /start — увидишь главное меню\n"
+            "2) Выбери ⏱ Таймфрейм и 🛡 Риск\n"
+            "3) Настрой 🎯 RR, 🚫 DD и 📦 лимит позиций в меню риска\n"
+            "4) Проверь профиль через 📊 Статус\n"
+            "5) Запусти 🧪 Mini-backtest для проверки актива\n\n"
+            "Команды для быстрого доступа:\n"
+            "/menu /status /risk /tf_menu /mode_menu /backtest /positions /ml_report"
+        )
 
     def mode_handler(ctx: CommandContext, args: str) -> str:
         profile = store.get_or_create(ctx.user_id, config)
         raw_mode = args.strip().lower()
         if not raw_mode:
-            return f"Текущий mode={profile.mode}. Использование: /mode <signal_only|paper|live>"
+            return f"🤖 Текущий режим: {profile.mode}\nВыбери кнопкой: /mode_menu"
         if not _access_write_allowed(config):
             return "Режим доступа notify_only: команда недоступна."
         errors: list[str] = []
@@ -97,13 +82,13 @@ def build_default_router(
             return _format_profile_error(profile, errors)
         updated = replace(profile, mode=mode)
         store.save(updated)
-        return f"mode обновлен: {updated.mode}"
+        return f"✅ Режим обновлен: {updated.mode}"
 
     def set_tf_handler(ctx: CommandContext, args: str) -> str:
         profile = store.get_or_create(ctx.user_id, config)
         raw_timeframe = args.strip().lower()
         if not raw_timeframe:
-            return f"Текущий timeframe={profile.timeframe}. Использование: /set_tf <1m|5m|15m|1h|4h>"
+            return f"⏱ Текущий таймфрейм: {profile.timeframe}\nОткрой выбор: /tf_menu"
         if not _access_write_allowed(config):
             return "Режим доступа notify_only: команда недоступна."
         errors: list[str] = []
@@ -112,13 +97,13 @@ def build_default_router(
             return _format_profile_error(profile, errors)
         updated = replace(profile, timeframe=timeframe)
         store.save(updated)
-        return f"timeframe обновлен: {updated.timeframe}"
+        return f"✅ Таймфрейм обновлен: {updated.timeframe}"
 
     def set_risk_handler(ctx: CommandContext, args: str) -> str:
         profile = store.get_or_create(ctx.user_id, config)
         raw_risk = args.strip()
         if not raw_risk:
-            return f"Текущий risk={profile.risk_per_trade_pct}. Использование: /set_risk <0.1..2.0>"
+            return f"🛡 Текущий риск на сделку: {profile.risk_per_trade_pct}%\nОткрой меню риска: /risk"
         if not _access_write_allowed(config):
             return "Режим доступа notify_only: команда недоступна."
         errors: list[str] = []
@@ -127,13 +112,13 @@ def build_default_router(
             return _format_profile_error(profile, errors)
         updated = replace(profile, risk_per_trade_pct=risk)
         store.save(updated)
-        return f"risk обновлен: {updated.risk_per_trade_pct}"
+        return f"✅ Риск на сделку обновлен: {updated.risk_per_trade_pct}%"
 
     def set_rr_handler(ctx: CommandContext, args: str) -> str:
         profile = store.get_or_create(ctx.user_id, config)
         raw_rr = args.strip()
         if not raw_rr:
-            return f"Текущий rr={profile.rr_ratio}. Использование: /set_rr <1.0..5.0>"
+            return f"🎯 Текущий Risk/Reward: {profile.rr_ratio}\nОткрой меню риска: /risk"
         if not _access_write_allowed(config):
             return "Режим доступа notify_only: команда недоступна."
         errors: list[str] = []
@@ -142,13 +127,13 @@ def build_default_router(
             return _format_profile_error(profile, errors)
         updated = replace(profile, rr_ratio=rr)
         store.save(updated)
-        return f"rr обновлен: {updated.rr_ratio}"
+        return f"✅ Risk/Reward обновлен: {updated.rr_ratio}"
 
     def set_dd_handler(ctx: CommandContext, args: str) -> str:
         profile = store.get_or_create(ctx.user_id, config)
         raw_dd = args.strip()
         if not raw_dd:
-            return f"Текущий max_dd={profile.max_daily_drawdown_pct}. Использование: /set_dd <1..10>"
+            return f"🚫 Текущий дневной лимит просадки: {profile.max_daily_drawdown_pct}%\nОткрой меню риска: /risk"
         if not _access_write_allowed(config):
             return "Режим доступа notify_only: команда недоступна."
         errors: list[str] = []
@@ -157,13 +142,13 @@ def build_default_router(
             return _format_profile_error(profile, errors)
         updated = replace(profile, max_daily_drawdown_pct=max_dd)
         store.save(updated)
-        return f"max_dd обновлен: {updated.max_daily_drawdown_pct}"
+        return f"✅ Лимит дневной просадки обновлен: {updated.max_daily_drawdown_pct}%"
 
     def set_maxpos_handler(ctx: CommandContext, args: str) -> str:
         profile = store.get_or_create(ctx.user_id, config)
         raw_maxpos = args.strip()
         if not raw_maxpos:
-            return f"Текущий max_pos={profile.max_open_positions}. Использование: /set_maxpos <1..10>"
+            return f"📦 Текущий лимит открытых позиций: {profile.max_open_positions}\nОткрой меню риска: /risk"
         if not _access_write_allowed(config):
             return "Режим доступа notify_only: команда недоступна."
         errors: list[str] = []
@@ -172,13 +157,13 @@ def build_default_router(
             return _format_profile_error(profile, errors)
         updated = replace(profile, max_open_positions=max_pos)
         store.save(updated)
-        return f"max_pos обновлен: {updated.max_open_positions}"
+        return f"✅ Лимит открытых позиций обновлен: {updated.max_open_positions}"
 
     def set_sl_handler(ctx: CommandContext, args: str) -> str:
         profile = store.get_or_create(ctx.user_id, config)
         raw_sl = args.strip()
         if not raw_sl:
-            return f"Текущий sl={profile.sl_pct}. Использование: /set_sl <0.1..20>"
+            return f"🧯 Текущий стоп-лосс: {profile.sl_pct}%\nОткрой меню риска: /risk"
         if not _access_write_allowed(config):
             return "Режим доступа notify_only: команда недоступна."
         errors: list[str] = []
@@ -187,13 +172,13 @@ def build_default_router(
             return _format_profile_error(profile, errors)
         updated = replace(profile, sl_pct=sl)
         store.save(updated)
-        return f"sl обновлен: {updated.sl_pct}"
+        return f"✅ Стоп-лосс обновлен: {updated.sl_pct}%"
 
     def set_tp_handler(ctx: CommandContext, args: str) -> str:
         profile = store.get_or_create(ctx.user_id, config)
         raw_tp = args.strip()
         if not raw_tp:
-            return f"Текущий tp={profile.tp_pct}. Использование: /set_tp <0.1..50>"
+            return f"💰 Текущий тейк-профит: {profile.tp_pct}%\nОткрой меню риска: /risk"
         if not _access_write_allowed(config):
             return "Режим доступа notify_only: команда недоступна."
         errors: list[str] = []
@@ -202,7 +187,7 @@ def build_default_router(
             return _format_profile_error(profile, errors)
         updated = replace(profile, tp_pct=tp)
         store.save(updated)
-        return f"tp обновлен: {updated.tp_pct}"
+        return f"✅ Тейк-профит обновлен: {updated.tp_pct}%"
 
     def close_handler(ctx: CommandContext, __: str) -> str:
         profile = store.get_or_create(ctx.user_id, config)
@@ -217,19 +202,19 @@ def build_default_router(
     def status_handler(ctx: CommandContext, __: str) -> str:
         profile = store.get_or_create(ctx.user_id, config)
         return (
-            "Статус каркаса Telegram Core: online\n"
-            f"access_mode={config.bot.access_mode}\n"
-            f"mode={profile.mode}\n"
-            f"exchange={profile.exchange}\n"
-            f"timeframe={profile.timeframe}\n"
-            f"risk={profile.risk_per_trade_pct}\n"
-            f"rr={profile.rr_ratio}\n"
-            f"max_dd={profile.max_daily_drawdown_pct}\n"
-            f"max_pos={profile.max_open_positions}\n"
-            f"sl={profile.sl_pct}\n"
-            f"tp={profile.tp_pct}\n"
-            f"open_pos={profile.open_positions_count}\n"
-            f"report_interval_min={profile.position_report_minutes}"
+            "📊 Текущий статус\n"
+            f"🔐 Доступ: {config.bot.access_mode}\n"
+            f"🤖 Режим: {profile.mode}\n"
+            f"📈 Биржа: {profile.exchange}\n"
+            f"⏱ Таймфрейм: {profile.timeframe}\n"
+            f"🛡 Риск: {profile.risk_per_trade_pct}%\n"
+            f"🎯 RR: {profile.rr_ratio}\n"
+            f"🚫 DD: {profile.max_daily_drawdown_pct}%\n"
+            f"📦 Макс. позиций: {profile.max_open_positions}\n"
+            f"🧯 SL: {profile.sl_pct}%\n"
+            f"💰 TP: {profile.tp_pct}%\n"
+            f"📍 Открытых позиций: {profile.open_positions_count}\n"
+            f"🔔 Интервал отчета: {profile.position_report_minutes} мин"
         )
 
     def positions_handler(ctx: CommandContext, __: str) -> dict:
@@ -244,7 +229,8 @@ def build_default_router(
     def risk_menu_handler(ctx: CommandContext, __: str) -> dict:
         profile = store.get_or_create(ctx.user_id, config)
         text = (
-            "Risk меню\n"
+            "🛡 Меню риска\n"
+            "Выбери готовый пресет кнопкой.\n"
             f"risk={profile.risk_per_trade_pct}\n"
             f"rr={profile.rr_ratio}\n"
             f"max_dd={profile.max_daily_drawdown_pct}\n"
@@ -252,15 +238,56 @@ def build_default_router(
             f"sl={profile.sl_pct}\n"
             f"tp={profile.tp_pct}\n"
             f"open_pos={profile.open_positions_count}\n"
-            "Выбери быстрый пресет:"
+            "⬇️ Нажми на нужный параметр:"
         )
         inline = (
-            (("Risk 0.5%", "/set_risk 0.5"), ("Risk 1.0%", "/set_risk 1.0"), ("Risk 1.5%", "/set_risk 1.5")),
-            (("RR 1.5", "/set_rr 1.5"), ("RR 2.0", "/set_rr 2.0"), ("RR 2.5", "/set_rr 2.5")),
-            (("DD 5%", "/set_dd 5"), ("DD 8%", "/set_dd 8"), ("DD 10%", "/set_dd 10")),
-            (("MaxPos 1", "/set_maxpos 1"), ("MaxPos 2", "/set_maxpos 2"), ("MaxPos 3", "/set_maxpos 3")),
-            (("SL 0.5%", "/set_sl 0.5"), ("TP 1.0%", "/set_tp 1.0"), ("Close 1", "/close")),
-            (("Обновить", "/risk"),),
+            (("🛡 Риск 0.5%", "/set_risk 0.5"), ("🛡 Риск 1.0%", "/set_risk 1.0"), ("🛡 Риск 1.5%", "/set_risk 1.5")),
+            (("🎯 RR 1.5", "/set_rr 1.5"), ("🎯 RR 2.0", "/set_rr 2.0"), ("🎯 RR 2.5", "/set_rr 2.5")),
+            (("🚫 DD 5%", "/set_dd 5"), ("🚫 DD 8%", "/set_dd 8"), ("🚫 DD 10%", "/set_dd 10")),
+            (("📦 Макс 1", "/set_maxpos 1"), ("📦 Макс 2", "/set_maxpos 2"), ("📦 Макс 3", "/set_maxpos 3")),
+            (("🧯 SL 0.5%", "/set_sl 0.5"), ("💰 TP 1.0%", "/set_tp 1.0"), ("❌ Закрыть 1", "/close")),
+            (("🔄 Обновить", "/risk"), ("🏠 Главное меню", "/menu")),
+        )
+        return {"text": text, "inline_keyboard": inline}
+
+    def menu_handler(_: CommandContext, __: str) -> dict:
+        return {
+            "text": (
+                "🏠 Главное меню\n"
+                "Выбери раздел. Все кнопки безопасны: они только меняют настройки профиля."
+            ),
+            "inline_keyboard": _main_menu_inline(),
+            "reply_keyboard": (),
+        }
+
+    def tf_menu_handler(ctx: CommandContext, __: str) -> dict:
+        profile = store.get_or_create(ctx.user_id, config)
+        text = (
+            "⏱ Выбор таймфрейма\n"
+            f"Сейчас: {profile.timeframe}\n"
+            "1м — очень частые сигналы\n"
+            "5м/15м — сбалансированный режим\n"
+            "1ч/4ч — более спокойные сигналы"
+        )
+        inline = (
+            (("⚡ 1м", "/set_tf 1m"), ("🚀 5м", "/set_tf 5m"), ("📘 15м", "/set_tf 15m")),
+            (("🕐 1ч", "/set_tf 1h"), ("🌙 4ч", "/set_tf 4h")),
+            (("🏠 Главное меню", "/menu"),),
+        )
+        return {"text": text, "inline_keyboard": inline}
+
+    def mode_menu_handler(ctx: CommandContext, __: str) -> dict:
+        profile = store.get_or_create(ctx.user_id, config)
+        text = (
+            "🤖 Выбор режима\n"
+            f"Сейчас: {profile.mode}\n"
+            "signal_only — только сигналы\n"
+            "paper — тест без реальных денег\n"
+            "live — боевой режим"
+        )
+        inline = (
+            (("🔔 Только сигналы", "/mode signal_only"), ("🧪 Paper", "/mode paper"), ("🔥 Live", "/mode live")),
+            (("🏠 Главное меню", "/menu"),),
         )
         return {"text": text, "inline_keyboard": inline}
 
@@ -324,6 +351,9 @@ def build_default_router(
     router.add_route("/set_tp", set_tp_handler)
     router.add_route("/close", close_handler)
     router.add_route("/status", status_handler)
+    router.add_route("/menu", menu_handler)
+    router.add_route("/tf_menu", tf_menu_handler)
+    router.add_route("/mode_menu", mode_menu_handler)
     router.add_route("/positions", positions_handler)
     router.add_route("/ml_report", ml_report_handler)
     router.add_route("/risk", risk_menu_handler)
@@ -390,6 +420,15 @@ def _apply_start_updates(
             position_report_minutes=report_value,
         ),
         [],
+    )
+
+
+def _main_menu_inline() -> tuple[tuple[tuple[str, str], ...], ...]:
+    return (
+        (("📊 Статус", "/status"), ("📍 Позиции", "/positions")),
+        (("⏱ Таймфрейм", "/tf_menu"), ("🛡 Риск и RR", "/risk")),
+        (("🤖 Режим", "/mode_menu"), ("🧪 Mini-backtest", "/backtest")),
+        (("🧠 ML отчет", "/ml_report"), ("❓ Помощь", "/help")),
     )
 
 

@@ -79,6 +79,8 @@ class TestTelegramTransport(unittest.TestCase):
         self.assertEqual(payload["text"], "ok")
         self.assertIn("reply_markup", payload)
         self.assertTrue(payload["reply_markup"]["resize_keyboard"])
+        self.assertTrue(payload["reply_markup"]["one_time_keyboard"])
+        self.assertFalse(payload["reply_markup"]["is_persistent"])
 
     def test_send_text_includes_inline_keyboard(self) -> None:
         transport = TelegramApiTransport(bot_token="token123")
@@ -94,6 +96,18 @@ class TestTelegramTransport(unittest.TestCase):
         with patch("core.bot.telegram_transport.request.urlopen", side_effect=fake_urlopen):
             transport.send_text(chat_id=8, text="rep", inline_keyboard=inline)
         self.assertIn("inline_keyboard", captured["payload"]["reply_markup"])
+
+    def test_send_text_can_remove_reply_keyboard(self) -> None:
+        transport = TelegramApiTransport(bot_token="token123")
+        captured: dict[str, object] = {}
+
+        def fake_urlopen(req, timeout=30):
+            captured["payload"] = json.loads((req.data or b"{}").decode("utf-8"))
+            return _FakeResponse({"ok": True, "result": {"message_id": 1}})
+
+        with patch("core.bot.telegram_transport.request.urlopen", side_effect=fake_urlopen):
+            transport.send_text(chat_id=9, text="hide", reply_keyboard=())
+        self.assertEqual(captured["payload"]["reply_markup"], {"remove_keyboard": True})
 
     def test_fetch_updates_parses_callback_query(self) -> None:
         transport = TelegramApiTransport(bot_token="token123")

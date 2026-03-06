@@ -70,10 +70,6 @@ async def _run_runtime(runtime: TelegramBotRuntime, once: bool) -> None:
             await asyncio.sleep(1)
 
 
-if __name__ == "__main__":
-    main()
-
-
 async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport, store: TelegramUserProfileStore, config_env, once: bool) -> None:  # type: ignore[no-untyped-def]
     if once:
         await _run_runtime(runtime, once=True)
@@ -234,3 +230,7 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
                 await asyncio.sleep(1)
 
     await asyncio.gather(_run_runtime(runtime, once=False), run_pipeline())
+
+
+if __name__ == "__main__":
+    main()

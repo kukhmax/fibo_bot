@@ -53,11 +53,15 @@ class TelegramApiTransport:
             "text": text,
         }
         if reply_keyboard is not None:
-            payload["reply_markup"] = {
-                "keyboard": [[{"text": value} for value in row] for row in reply_keyboard],
-                "resize_keyboard": True,
-                "is_persistent": True,
-            }
+            if len(reply_keyboard) == 0:
+                payload["reply_markup"] = {"remove_keyboard": True}
+            else:
+                payload["reply_markup"] = {
+                    "keyboard": [[{"text": value} for value in row] for row in reply_keyboard],
+                    "resize_keyboard": True,
+                    "one_time_keyboard": True,
+                    "is_persistent": False,
+                }
         if inline_keyboard is not None:
             payload["reply_markup"] = {
                 "inline_keyboard": [
