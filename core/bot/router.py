@@ -76,7 +76,7 @@ class CommandRouter:
                 "🧭 Readiness": "/readiness",
                 "🙈 Скрыть меню": "/hide_menu",
             }
-            mapped = quick_map.get(stripped)
+            mapped = quick_map.get(_normalize_menu_text(stripped))
             if mapped is None:
                 return None, ""
             stripped = mapped
@@ -98,3 +98,7 @@ class CommandRouter:
             reply_keyboard=self._reply_keyboard,
             inline_keyboard=None,
         )
+
+
+def _normalize_menu_text(value: str) -> str:
+    return value.replace("\ufe0f", "").strip()

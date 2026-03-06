@@ -8,14 +8,24 @@ from core.ml.artifacts import ModelArtifactStore
 class PositionReporter:
     def build_report(self, profile: TelegramUserProfile) -> str:
         now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-        positions_line = "Нет открытых позиций\n" if profile.open_positions_count == 0 else "Есть открытые позиции\n"
+        positions_line = (
+            "✅ Нет открытых позиций\n" if profile.open_positions_count == 0 else "⚠️ Есть открытые позиции\n"
+        )
         return (
-            "Отчет по позициям\n"
-            + f"mode={profile.mode} exchange={profile.exchange} timeframe={profile.timeframe}\n"
-            + f"risk={profile.risk_per_trade_pct} rr={profile.rr_ratio} max_dd={profile.max_daily_drawdown_pct} max_pos={profile.max_open_positions}\n"
-            + f"sl={profile.sl_pct} tp={profile.tp_pct} open_pos={profile.open_positions_count}\n"
+            "📍 Отчет по позициям\n"
+            + "━━━━━━━━━━━━━━\n"
+            + f"🤖 Режим: {profile.mode}\n"
+            + f"📈 Биржа: {profile.exchange}\n"
+            + f"⏱ Таймфрейм: {profile.timeframe}\n"
+            + f"🛡 Риск: {profile.risk_per_trade_pct}%\n"
+            + f"🎯 RR: {profile.rr_ratio}\n"
+            + f"🚫 DD: {profile.max_daily_drawdown_pct}%\n"
+            + f"📦 Макс. позиций: {profile.max_open_positions}\n"
+            + f"🧯 SL: {profile.sl_pct}%\n"
+            + f"💰 TP: {profile.tp_pct}%\n"
+            + f"📌 Открытых позиций: {profile.open_positions_count}\n"
             + positions_line
-            + f"ts={now}"
+            + f"🕒 Время: {now}"
         )
 
 

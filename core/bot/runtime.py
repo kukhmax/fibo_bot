@@ -47,6 +47,7 @@ class TelegramBotRuntime:
         self._profiles = profile_store
         self._reporter = reporter or PositionReporter()
         self._report_state = report_state or StateCache("runtime/report_last_sent.json")
+        self._event_logs_enabled = bool(int(os.getenv("BOT_EVENT_LOGS", "1")))
 
     async def process_once(self) -> int:
         updates = self.transport.fetch_updates(offset=self._offset)
@@ -55,12 +56,19 @@ class TelegramBotRuntime:
             return 0
         for update in updates:
             self._offset = update.update_id + 1
+            self._log_event(
+                f"incoming update_id={update.update_id} chat_id={update.chat_id} user_id={update.user_id} text={_short(update.text)}"
+            )
             context = CommandContext(
                 chat_id=update.chat_id,
                 user_id=update.user_id,
                 text=update.text,
             )
             result = await self.router.dispatch(context)
+            self._log_event(
+                f"result handled={result.handled} reply_kb={'yes' if result.reply_keyboard is not None else 'no'} "
+                f"inline_kb={'yes' if result.inline_keyboard is not None else 'no'} text={_short(result.response_text)}"
+            )
             self.transport.send_text(
                 update.chat_id,
                 result.response_text,
@@ -103,3 +111,16 @@ class TelegramBotRuntime:
             report_text = self._reporter.build_report(profile)
             self.transport.send_text(chat_id=user_id, text=report_text)
             self._report_state.set(f"last:{user_id}", now)
+            self._log_event(f"scheduled_report_sent user_id={user_id} interval_min={interval_min}")
+
+    def _log_event(self, message: str) -> None:
+        if not self._event_logs_enabled:
+            return
+        print(f"bot_runtime: {message}")
+
+
+def _short(text: str, limit: int = 140) -> str:
+    normalized = " ".join(text.split())
+    if len(normalized) <= limit:
+        return normalized
+    return normalized[: limit - 3] + "..."
