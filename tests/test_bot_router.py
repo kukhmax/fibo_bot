@@ -188,6 +188,36 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         self.assertIn("/set_tp 1.0", callbacks)
         self.assertIn("/close", callbacks)
 
+    async def test_backtest_menu_returns_inline_keyboard(self) -> None:
+        config = load_environment_config("dev")
+        router = build_default_router(config, profile_store=self._store)
+        result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/backtest"))
+        self.assertTrue(result.handled)
+        self.assertIn("Mini-backtest", result.response_text)
+        self.assertIsNotNone(result.inline_keyboard)
+        assert result.inline_keyboard is not None
+        callbacks = [callback for row in result.inline_keyboard for (_text, callback) in row]
+        self.assertIn("/backtest symbol=BTCUSDT timeframe=5m", callbacks)
+
+    async def test_backtest_accepts_symbol_and_timeframe(self) -> None:
+        config = load_environment_config("dev")
+        router = build_default_router(config, profile_store=self._store)
+        result = await router.dispatch(
+            CommandContext(chat_id=1, user_id=42, text="/backtest symbol=BTCUSDT timeframe=5m")
+        )
+        self.assertTrue(result.handled)
+        self.assertIn("symbol=BTCUSDT", result.response_text)
+        self.assertIn("timeframe=5m", result.response_text)
+
+    async def test_backtest_rejects_invalid_symbol(self) -> None:
+        config = load_environment_config("dev")
+        router = build_default_router(config, profile_store=self._store)
+        result = await router.dispatch(
+            CommandContext(chat_id=1, user_id=42, text="/backtest symbol=XRPUSDT timeframe=5m")
+        )
+        self.assertTrue(result.handled)
+        self.assertIn("Ошибка mini-backtest", result.response_text)
+
     async def test_notify_only_access_blocks_updates(self) -> None:
         config = load_environment_config("dev")
         config = dc_replace(config, bot=dc_replace(config.bot, access_mode="notify_only"))

@@ -628,6 +628,19 @@ Commit: `8a9eedb`
 
 ---
 
+Дата/время (UTC): 2026-03-06  
+Подэтап: `E6.1`  
+Что сделано: Добавлена команда `/backtest` с выбором актива и таймфрейма в Telegram.  
+Какие файлы изменены: `core/bot/commands.py`, `tests/test_bot_router.py`, `DEVELOP.md`  
+Реализованная логика: Команда `/backtest` без аргументов показывает inline-меню выбора пары и ТФ. Команда с аргументами `symbol/timeframe` валидирует входные параметры и возвращает подтверждение выбранных настроек с числом доступных локальных свечей (`limit=3000`) как завершение шага 1/4 mini-backtest сценария.  
+Команды: `python -m unittest tests.test_bot_router tests.test_persistence -v`, полный регресс `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot tests.test_candle_builder tests.test_data_quality tests.test_data_fallback tests.test_ws_runtime tests.test_realtime_candle_pipeline tests.test_mexc_ws_adapter tests.test_persistence tests.test_bot_router tests.test_bot_profile_store tests.test_telegram_transport tests.test_reports_scheduler tests.test_strategy_selector tests.test_strategy_trend_pullback tests.test_strategy_volatility_breakout tests.test_strategy_liquidity_sweep tests.test_regime_classifier tests.test_ml_history_pipeline tests.test_feature_dataset_builder tests.test_ml_dataset_builder tests.test_ml_labeling tests.test_ml_training tests.test_ml_inference tests.test_risk_manager tests.test_risk_drawdown tests.test_risk_alerts -v`  
+Тесты: Прогнано 103 unit-теста, все успешны; добавлены тесты меню `/backtest`, валидного выбора и обработки невалидного актива.  
+Как проверено: Подтверждены корректный inline-подбор параметров и обработка формата `/backtest symbol=... timeframe=...` без регрессий в остальных модулях.  
+Результат: Подэтап `E6.1` завершен, интерфейс выбора актива и ТФ для mini-backtest доступен в Telegram.  
+Commit: будет добавлен после фиксации изменений в git.
+
+---
+
 ## 5) TODO после MVP (согласовано)
 
 - Добавить whitelist активов по ликвидности и спреду.

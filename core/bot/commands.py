@@ -4,6 +4,7 @@ from core.bot.router import CommandContext
 from core.bot.router import CommandRouter
 from core.bot.profile import TelegramUserProfile
 from core.bot.profile import TelegramUserProfileStore
+from core.backtest import load_local_backtest_candles
 from core.config.models import EnvironmentConfig
 from core.ml.artifacts import ModelArtifactStore
 from core.bot.reporter import MlQualityReporter
@@ -22,8 +23,11 @@ COMMAND_KEYBOARD: tuple[tuple[str, ...], ...] = (
     ("/set_maxpos 1", "/set_maxpos 2", "/set_maxpos 3"),
     ("/set_sl 0.5", "/set_tp 1.0", "/close"),
     ("/positions", "/ml_report", "/risk"),
+    ("/backtest",),
 )
 RISK_MANAGER = RiskManager()
+BACKTEST_SYMBOLS: tuple[str, ...] = ("BTCUSDT", "ETHUSDT", "SOLUSDT")
+BACKTEST_TIMEFRAMES: tuple[str, ...] = ("1m", "5m", "15m", "1h")
 
 
 def build_default_router(
@@ -256,6 +260,50 @@ def build_default_router(
         )
         return {"text": text, "inline_keyboard": inline}
 
+    def backtest_handler(_: CommandContext, args: str) -> dict:
+        symbol = ""
+        timeframe = ""
+        for token in args.split():
+            if "=" not in token:
+                continue
+            key, value = token.split("=", 1)
+            normalized_key = key.strip().lower()
+            normalized_value = value.strip().upper() if normalized_key == "symbol" else value.strip().lower()
+            if normalized_key == "symbol":
+                symbol = normalized_value
+            elif normalized_key in {"tf", "timeframe"}:
+                timeframe = normalized_value
+        if not symbol or not timeframe:
+            text = (
+                "Mini-backtest\n"
+                "Шаг 1/4: выбери актив и таймфрейм.\n"
+                "Использование: /backtest symbol=<BTCUSDT|ETHUSDT|SOLUSDT> timeframe=<1m|5m|15m|1h>"
+            )
+            inline = (
+                (("BTC 5m", "/backtest symbol=BTCUSDT timeframe=5m"), ("ETH 5m", "/backtest symbol=ETHUSDT timeframe=5m")),
+                (("SOL 5m", "/backtest symbol=SOLUSDT timeframe=5m"), ("BTC 1h", "/backtest symbol=BTCUSDT timeframe=1h")),
+                (("ETH 15m", "/backtest symbol=ETHUSDT timeframe=15m"), ("SOL 1m", "/backtest symbol=SOLUSDT timeframe=1m")),
+            )
+            return {"text": text, "inline_keyboard": inline}
+        errors: list[str] = []
+        if symbol not in BACKTEST_SYMBOLS:
+            errors.append("symbol должен быть BTCUSDT|ETHUSDT|SOLUSDT")
+        if timeframe not in BACKTEST_TIMEFRAMES:
+            errors.append("timeframe должен быть 1m|5m|15m|1h")
+        if errors:
+            text = "Ошибка mini-backtest: " + "; ".join(errors)
+            return {"text": text, "inline_keyboard": None}
+        candles = load_local_backtest_candles(symbol=symbol, timeframe=timeframe, limit=3000)
+        text = (
+            "Mini-backtest\n"
+            f"symbol={symbol}\n"
+            f"timeframe={timeframe}\n"
+            f"candles_local={len(candles)}\n"
+            "Шаг 1/4 завершен: параметры выбора приняты."
+        )
+        inline = ((( "Изменить выбор", "/backtest"),),)
+        return {"text": text, "inline_keyboard": inline}
+
     router.add_route("/start", start_handler)
     router.add_route("/help", help_handler)
     router.add_route("/mode", mode_handler)
@@ -271,6 +319,7 @@ def build_default_router(
     router.add_route("/positions", positions_handler)
     router.add_route("/ml_report", ml_report_handler)
     router.add_route("/risk", risk_menu_handler)
+    router.add_route("/backtest", backtest_handler)
     return router
 
 
