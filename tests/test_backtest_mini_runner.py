@@ -54,6 +54,8 @@ class TestMiniBacktestRunner(unittest.TestCase):
         self.assertGreaterEqual(report.profit_factor, 0.0)
         self.assertGreaterEqual(report.max_drawdown_r, 0.0)
         self.assertGreaterEqual(report.avg_rr, 0.0)
+        self.assertIsInstance(report.is_allowed, bool)
+        self.assertTrue(bool(report.decision_reason))
         self.assertGreater(report.regime_counts.get("trend_up", 0), 0)
 
     def test_runner_blocks_entries_when_ml_rejects(self) -> None:
@@ -62,6 +64,8 @@ class TestMiniBacktestRunner(unittest.TestCase):
         self.assertEqual(report.entries_after_ml, 0)
         self.assertEqual(report.entries_blocked_ml, report.entries_total)
         self.assertEqual(report.trades, 0)
+        self.assertFalse(report.is_allowed)
+        self.assertIn("trades<20", report.decision_reason)
 
 
 if __name__ == "__main__":

@@ -20,6 +20,8 @@ class MiniBacktestRunReport:
     max_drawdown_r: float
     avg_rr: float
     expectancy_r: float
+    is_allowed: bool
+    decision_reason: str
     regime_counts: dict[str, int]
     strategy_entry_counts: dict[str, int]
 
@@ -63,6 +65,7 @@ def run_mini_backtest(candles: list[Candle], ml_filter=None) -> MiniBacktestRunR
         else:
             entries_blocked_ml += 1
     metrics = _calc_metrics(trade_r_values)
+    allowed, decision_reason = _assess_asset(metrics)
     return MiniBacktestRunReport(
         candles_count=len(ordered),
         entries_total=entries_total,
@@ -74,6 +77,8 @@ def run_mini_backtest(candles: list[Candle], ml_filter=None) -> MiniBacktestRunR
         max_drawdown_r=metrics["max_drawdown_r"],
         avg_rr=metrics["avg_rr"],
         expectancy_r=metrics["expectancy_r"],
+        is_allowed=allowed,
+        decision_reason=decision_reason,
         regime_counts=regime_counts,
         strategy_entry_counts=strategy_entry_counts,
     )
@@ -137,3 +142,22 @@ def _calc_metrics(trade_r_values: list[float]) -> dict[str, float | int]:
         "avg_rr": float(avg_rr),
         "expectancy_r": float(expectancy_r),
     }
+
+
+def _assess_asset(metrics: dict[str, float | int]) -> tuple[bool, str]:
+    trades = int(metrics["trades"])
+    profit_factor = float(metrics["profit_factor"])
+    max_drawdown_r = float(metrics["max_drawdown_r"])
+    expectancy_r = float(metrics["expectancy_r"])
+    reasons: list[str] = []
+    if trades < 20:
+        reasons.append("trades<20")
+    if profit_factor < 1.2:
+        reasons.append("pf<1.2")
+    if expectancy_r <= 0.0:
+        reasons.append("expectancy<=0")
+    if max_drawdown_r > 5.0:
+        reasons.append("dd>5R")
+    if reasons:
+        return False, ",".join(reasons)
+    return True, "metrics_ok"

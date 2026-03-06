@@ -693,6 +693,19 @@ Commit: `8dcac0e`
 
 ---
 
+Дата/время (UTC): 2026-03-06  
+Подэтап: `E6.6`  
+Что сделано: Добавлен итоговый флаг по активу в mini-backtest: допущен/не допущен.  
+Какие файлы изменены: `core/backtest/mini_runner.py`, `core/bot/reporter.py`, `tests/test_backtest_mini_runner.py`, `tests/test_backtest_reporter.py`, `tests/test_bot_router.py`, `DEVELOP.md`  
+Реализованная логика: В `run_mini_backtest` добавлена оценка актива по метрикам (`trades`, `pf`, `expectancy`, `max_drawdown_r`) с выдачей `is_allowed` и `decision_reason`. В Telegram-отчете добавлен блок `[Итог]` с `asset_status=допущен|не допущен` и причиной решения.  
+Команды: `python -m unittest tests.test_backtest_reporter tests.test_backtest_mini_runner tests.test_bot_router -v`, полный регресс `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot tests.test_candle_builder tests.test_data_quality tests.test_data_fallback tests.test_ws_runtime tests.test_realtime_candle_pipeline tests.test_mexc_ws_adapter tests.test_persistence tests.test_bot_router tests.test_bot_profile_store tests.test_telegram_transport tests.test_reports_scheduler tests.test_strategy_selector tests.test_strategy_trend_pullback tests.test_strategy_volatility_breakout tests.test_strategy_liquidity_sweep tests.test_regime_classifier tests.test_ml_history_pipeline tests.test_feature_dataset_builder tests.test_ml_dataset_builder tests.test_ml_labeling tests.test_ml_training tests.test_ml_inference tests.test_risk_manager tests.test_risk_drawdown tests.test_risk_alerts tests.test_backtest_history tests.test_backtest_mini_runner tests.test_backtest_reporter -v`  
+Тесты: Прогнано 108 unit-тестов, все успешны; расширены проверки runner/reporter/router для итогового флага и причины решения.  
+Как проверено: Подтверждено, что `/backtest` стабильно возвращает итог допуска актива и детализированную причину в структурированном отчете.  
+Результат: Подэтап `E6.6` завершен, флаг допуск/недопуск актива добавлен в mini-backtest.  
+Commit: будет добавлен после фиксации изменений в git.
+
+---
+
 ## 5) TODO после MVP (согласовано)
 
 - Добавить whitelist активов по ликвидности и спреду.

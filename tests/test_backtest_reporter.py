@@ -17,6 +17,8 @@ class TestBacktestReporter(unittest.TestCase):
             max_drawdown_r=3.2,
             avg_rr=1.1,
             expectancy_r=0.08,
+            is_allowed=True,
+            decision_reason="metrics_ok",
             regime_counts={"trend_up": 1500, "range": 1200, "volatile": 300},
             strategy_entry_counts={"trend_pullback": 70, "liquidity_sweep": 20},
         )
@@ -32,9 +34,11 @@ class TestBacktestReporter(unittest.TestCase):
         self.assertIn("[Параметры]", text)
         self.assertIn("[Сигналы]", text)
         self.assertIn("[Метрики]", text)
+        self.assertIn("[Итог]", text)
         self.assertIn("[Распределения]", text)
         self.assertIn("symbol=BTCUSDT", text)
         self.assertIn("pf=1.4000", text)
+        self.assertIn("asset_status=допущен", text)
 
 
 if __name__ == "__main__":
