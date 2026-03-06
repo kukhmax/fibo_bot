@@ -758,6 +758,19 @@ Commit: `3119ed2`
 
 ---
 
+Дата/время (UTC): 2026-03-06  
+Подэтап: `E7.4`  
+Что сделано: Добавлена команда готовности к live-этапу `/readiness` с человеко-понятной проверкой критических условий.  
+Какие файлы изменены: `core/bot/commands.py`, `tests/test_bot_router.py`, `DEVELOP.md`  
+Реализованная логика: В Telegram-роутер добавлена команда `/readiness`, которая показывает статус перехода к live по ключевым критериям (режим `live`, `full_access`, наличие `TELEGRAM_BOT_TOKEN`, наличие ключей Hyperliquid) и итоговый счетчик незакрытых пунктов. Команда добавлена в help и главное меню.  
+Команды: `python -m unittest tests.test_bot_router tests.test_signal_pipeline_resilience -v`, полный регресс `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot tests.test_candle_builder tests.test_data_quality tests.test_data_fallback tests.test_ws_runtime tests.test_realtime_candle_pipeline tests.test_mexc_ws_adapter tests.test_persistence tests.test_bot_router tests.test_bot_profile_store tests.test_telegram_transport tests.test_reports_scheduler tests.test_strategy_selector tests.test_strategy_trend_pullback tests.test_strategy_volatility_breakout tests.test_strategy_liquidity_sweep tests.test_regime_classifier tests.test_ml_history_pipeline tests.test_feature_dataset_builder tests.test_ml_dataset_builder tests.test_ml_labeling tests.test_ml_training tests.test_ml_inference tests.test_risk_manager tests.test_risk_drawdown tests.test_risk_alerts tests.test_backtest_history tests.test_backtest_mini_runner tests.test_backtest_reporter tests.test_integration_user_flows tests.test_integration_multi_asset_backtest tests.test_signal_pipeline_resilience -v`  
+Тесты: Прогнано 117 unit/integration тестов, все успешны.  
+Как проверено: Подтвержден корректный вывод readiness в случаях отсутствующих и заполненных секретов, а также отсутствие регрессий по проекту.  
+Результат: Подэтап `E7.4` завершен, подготовка к live-этапу формализована в Telegram-интерфейсе.  
+Commit: будет добавлен после фиксации изменений в git.
+
+---
+
 ## 5) TODO после MVP (согласовано)
 
 - Добавить whitelist активов по ликвидности и спреду.

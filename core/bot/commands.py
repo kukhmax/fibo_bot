@@ -1,4 +1,5 @@
 from dataclasses import replace
+import os
 
 from core.bot.router import CommandContext
 from core.bot.router import CommandRouter
@@ -66,7 +67,7 @@ def build_default_router(
             "4) Проверь профиль через 📊 Статус\n"
             "5) Запусти 🧪 Mini-backtest для проверки актива\n\n"
             "Команды для быстрого доступа:\n"
-            "/menu /status /risk /tf_menu /mode_menu /backtest /positions /ml_report"
+            "/menu /status /risk /tf_menu /mode_menu /backtest /positions /ml_report /readiness"
         )
 
     def mode_handler(ctx: CommandContext, args: str) -> str:
@@ -217,6 +218,31 @@ def build_default_router(
             f"🔔 Интервал отчета: {profile.position_report_minutes} мин"
         )
 
+    def readiness_handler(ctx: CommandContext, __: str) -> str:
+        profile = store.get_or_create(ctx.user_id, config)
+        checks = [
+            ("Режим live активирован", profile.mode == "live"),
+            ("Полный доступ бота", config.bot.access_mode == "full_access"),
+            ("Токен Telegram задан", _is_secret_configured(os.getenv("TELEGRAM_BOT_TOKEN", ""))),
+            (
+                "Ключи Hyperliquid заданы",
+                _is_secret_configured(os.getenv("HYPERLIQUID_API_KEY", ""))
+                and _is_secret_configured(os.getenv("HYPERLIQUID_API_SECRET", "")),
+            ),
+        ]
+        lines = ["🧭 Готовность к live-этапу"]
+        not_ready = 0
+        for title, ok in checks:
+            lines.append(f"{'✅' if ok else '❌'} {title}")
+            if not ok:
+                not_ready += 1
+        if not_ready == 0:
+            lines.append("🚀 Можно переходить к live-подключению.")
+        else:
+            lines.append(f"⚠️ Нужно закрыть пунктов: {not_ready}")
+        lines.append("Подсказка: /mode live, затем проверь /status.")
+        return "\n".join(lines)
+
     def positions_handler(ctx: CommandContext, __: str) -> dict:
         profile = store.get_or_create(ctx.user_id, config)
         text = PositionReporter().build_report(profile)
@@ -356,6 +382,7 @@ def build_default_router(
     router.add_route("/mode_menu", mode_menu_handler)
     router.add_route("/positions", positions_handler)
     router.add_route("/ml_report", ml_report_handler)
+    router.add_route("/readiness", readiness_handler)
     router.add_route("/risk", risk_menu_handler)
     router.add_route("/backtest", backtest_handler)
     return router
@@ -428,8 +455,19 @@ def _main_menu_inline() -> tuple[tuple[tuple[str, str], ...], ...]:
         (("📊 Статус", "/status"), ("📍 Позиции", "/positions")),
         (("⏱ Таймфрейм", "/tf_menu"), ("🛡 Риск и RR", "/risk")),
         (("🤖 Режим", "/mode_menu"), ("🧪 Mini-backtest", "/backtest")),
-        (("🧠 ML отчет", "/ml_report"), ("❓ Помощь", "/help")),
+        (("🧠 ML отчет", "/ml_report"), ("🧭 Live readiness", "/readiness")),
+        (("❓ Помощь", "/help"),),
     )
+
+
+def _is_secret_configured(value: str) -> bool:
+    normalized = value.strip()
+    if not normalized:
+        return False
+    lowered = normalized.lower()
+    if lowered.startswith("put_") and lowered.endswith("_here"):
+        return False
+    return True
 
 
 def _parse_mode(raw: str, errors: list[str]) -> str:

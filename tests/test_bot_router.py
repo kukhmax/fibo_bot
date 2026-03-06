@@ -2,6 +2,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from dataclasses import replace as dc_replace
+from unittest.mock import patch
 
 from core.bot import CommandContext
 from core.bot import CommandRouter
@@ -217,6 +218,32 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         callbacks = [callback for row in result.inline_keyboard for (_text, callback) in row]
         self.assertIn("/set_tf 1m", callbacks)
         self.assertIn("/set_tf 4h", callbacks)
+
+    async def test_readiness_reports_missing_secrets(self) -> None:
+        config = load_environment_config("dev")
+        router = build_default_router(config, profile_store=self._store)
+        result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/readiness"))
+        self.assertTrue(result.handled)
+        self.assertIn("Готовность к live-этапу", result.response_text)
+        self.assertIn("❌ Ключи Hyperliquid заданы", result.response_text)
+
+    async def test_readiness_reports_ok_when_live_and_secrets_present(self) -> None:
+        config = load_environment_config("dev")
+        router = build_default_router(config, profile_store=self._store)
+        with patch.dict(
+            "os.environ",
+            {
+                "TELEGRAM_BOT_TOKEN": "token123",
+                "HYPERLIQUID_API_KEY": "hl_key",
+                "HYPERLIQUID_API_SECRET": "hl_secret",
+            },
+            clear=False,
+        ):
+            await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/mode live"))
+            result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/readiness"))
+        self.assertTrue(result.handled)
+        self.assertIn("✅ Режим live активирован", result.response_text)
+        self.assertIn("✅ Ключи Hyperliquid заданы", result.response_text)
 
     async def test_backtest_menu_returns_inline_keyboard(self) -> None:
         config = load_environment_config("dev")
