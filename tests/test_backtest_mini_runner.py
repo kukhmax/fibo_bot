@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from core.backtest import run_mini_backtest
 from core.data import Candle
@@ -66,6 +67,22 @@ class TestMiniBacktestRunner(unittest.TestCase):
         self.assertEqual(report.trades, 0)
         self.assertFalse(report.is_allowed)
         self.assertIn("trades<20", report.decision_reason)
+
+    def test_runner_blocks_asset_with_low_liquidity(self) -> None:
+        candles = self._build_trend_candles()
+        low_liq = [Candle(**{**item.__dict__, "volume": 5.0}) for item in candles]
+        with patch.dict("os.environ", {"WL_MIN_AVG_VOLUME": "50", "WL_MAX_AVG_SPREAD_PCT": "5.0"}, clear=False):
+            report = run_mini_backtest(candles=low_liq, ml_filter=None)
+        self.assertFalse(report.is_allowed)
+        self.assertIn("liquidity_low", report.decision_reason)
+
+    def test_runner_blocks_asset_with_high_spread(self) -> None:
+        candles = self._build_trend_candles()
+        high_spread = [Candle(**{**item.__dict__, "high": item.close * 1.2, "low": item.close * 0.8}) for item in candles]
+        with patch.dict("os.environ", {"WL_MIN_AVG_VOLUME": "50", "WL_MAX_AVG_SPREAD_PCT": "5.0"}, clear=False):
+            report = run_mini_backtest(candles=high_spread, ml_filter=None)
+        self.assertFalse(report.is_allowed)
+        self.assertIn("spread_high", report.decision_reason)
 
 
 if __name__ == "__main__":

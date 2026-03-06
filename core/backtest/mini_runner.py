@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import os
 
 from core.data.models import Candle
 from core.regime import RuleBasedRegimeClassifier
@@ -65,7 +66,13 @@ def run_mini_backtest(candles: list[Candle], ml_filter=None) -> MiniBacktestRunR
         else:
             entries_blocked_ml += 1
     metrics = _calc_metrics(trade_r_values)
-    allowed, decision_reason = _assess_asset(metrics)
+    market_quality = _calc_market_quality(ordered)
+    allowed, decision_reason = _assess_asset(
+        metrics,
+        market_quality,
+        min_avg_volume=float(os.getenv("WL_MIN_AVG_VOLUME", "50")),
+        max_avg_spread_pct=float(os.getenv("WL_MAX_AVG_SPREAD_PCT", "5.0")),
+    )
     return MiniBacktestRunReport(
         candles_count=len(ordered),
         entries_total=entries_total,
@@ -144,7 +151,21 @@ def _calc_metrics(trade_r_values: list[float]) -> dict[str, float | int]:
     }
 
 
-def _assess_asset(metrics: dict[str, float | int]) -> tuple[bool, str]:
+def _calc_market_quality(candles: list[Candle]) -> dict[str, float]:
+    if not candles:
+        return {"avg_volume": 0.0, "avg_spread_pct": 0.0}
+    avg_volume = sum(float(item.volume) for item in candles) / len(candles)
+    spreads = [((float(item.high) - float(item.low)) / max(abs(float(item.close)), 1e-9)) * 100.0 for item in candles]
+    avg_spread_pct = sum(spreads) / len(spreads)
+    return {"avg_volume": float(avg_volume), "avg_spread_pct": float(avg_spread_pct)}
+
+
+def _assess_asset(
+    metrics: dict[str, float | int],
+    market_quality: dict[str, float],
+    min_avg_volume: float,
+    max_avg_spread_pct: float,
+) -> tuple[bool, str]:
     trades = int(metrics["trades"])
     profit_factor = float(metrics["profit_factor"])
     max_drawdown_r = float(metrics["max_drawdown_r"])
@@ -158,6 +179,10 @@ def _assess_asset(metrics: dict[str, float | int]) -> tuple[bool, str]:
         reasons.append("expectancy<=0")
     if max_drawdown_r > 5.0:
         reasons.append("dd>5R")
+    if float(market_quality.get("avg_volume", 0.0)) < float(min_avg_volume):
+        reasons.append("liquidity_low")
+    if float(market_quality.get("avg_spread_pct", 0.0)) > float(max_avg_spread_pct):
+        reasons.append("spread_high")
     if reasons:
         return False, ",".join(reasons)
     return True, "metrics_ok"

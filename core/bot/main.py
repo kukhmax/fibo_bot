@@ -102,6 +102,9 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
         pause_until_utc_hour=int(config_env.risk.pause_until_utc_hour),
     )
     default_equity = float(os.getenv("PAPER_START_EQUITY", "1000"))
+    whitelist_symbols = _parse_whitelist_symbols(os.getenv("WHITELIST_SYMBOLS", "BTCUSDT,ETHUSDT,SOLUSDT"))
+    min_avg_volume = float(os.getenv("WL_MIN_AVG_VOLUME", "50"))
+    max_avg_spread_pct = float(os.getenv("WL_MAX_AVG_SPREAD_PCT", "5.0"))
 
     async def on_candle(candle):
         regime_window.append(candle)
@@ -113,6 +116,37 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
             strategy_name = select_strategy_by_regime(regime.label, fallback="trend_pullback")
         decision = strategies[strategy_name].on_candle(candle)
         if decision.action != "entry":
+            return
+        symbol_allowed, symbol_reason = _passes_asset_whitelist(
+            symbol=str(candle.symbol),
+            volume=float(candle.volume),
+            high=float(candle.high),
+            low=float(candle.low),
+            close=float(candle.close),
+            allowed_symbols=whitelist_symbols,
+            min_volume=min_avg_volume,
+            max_spread_pct=max_avg_spread_pct,
+        )
+        if not symbol_allowed:
+            state = store._cache.load()
+            for key, payload in state.items():
+                if not isinstance(key, str) or not key.startswith("profile:"):
+                    continue
+                try:
+                    user_id = int(key.split(":", 1)[1])
+                except Exception:
+                    continue
+                mode = str(payload.get("mode", "signal_only")).lower()
+                if mode not in {"signal_only", "paper"}:
+                    continue
+                transport.send_text(chat_id=user_id, text=f"risk_blocked: asset_filter={symbol_reason}")
+                risk_alert_notifier.maybe_send(
+                    transport=transport,
+                    chat_id=user_id,
+                    user_id=user_id,
+                    code="ASSET_FILTER_BLOCK",
+                    details=symbol_reason,
+                )
             return
         ml_probability = 1.0
         if ml_enabled and ml_filter.is_active():
@@ -230,6 +264,32 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
                 await asyncio.sleep(1)
 
     await asyncio.gather(_run_runtime(runtime, once=False), run_pipeline())
+
+
+def _parse_whitelist_symbols(raw: str) -> set[str]:
+    items = {part.strip().upper() for part in raw.split(",") if part.strip()}
+    return items
+
+
+def _passes_asset_whitelist(
+    symbol: str,
+    volume: float,
+    high: float,
+    low: float,
+    close: float,
+    allowed_symbols: set[str],
+    min_volume: float,
+    max_spread_pct: float,
+) -> tuple[bool, str]:
+    normalized_symbol = symbol.strip().upper()
+    if allowed_symbols and normalized_symbol not in allowed_symbols:
+        return False, f"symbol_not_allowed:{normalized_symbol}"
+    if volume < min_volume:
+        return False, f"liquidity_low:volume={volume:.2f}<min={min_volume:.2f}"
+    spread_pct = ((high - low) / max(abs(close), 1e-9)) * 100.0
+    if spread_pct > max_spread_pct:
+        return False, f"spread_high:{spread_pct:.2f}%>max={max_spread_pct:.2f}%"
+    return True, "ok"
 
 
 if __name__ == "__main__":

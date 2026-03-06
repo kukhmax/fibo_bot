@@ -771,6 +771,19 @@ Commit: `e7c9460`
 
 ---
 
+Дата/время (UTC): 2026-03-06  
+Подэтап: `E7.5`  
+Что сделано: Реализован whitelist активов по ликвидности и спреду в runtime и mini-backtest контурах.  
+Какие файлы изменены: `core/bot/main.py`, `core/backtest/mini_runner.py`, `tests/test_backtest_mini_runner.py`, `tests/test_signal_pipeline_resilience.py`, `DEVELOP.md`  
+Реализованная логика: В runtime-сигналах добавлен pre-trade фильтр по списку символов, минимальному объему свечи и максимальному прокси-спреду свечи (`WHITELIST_SYMBOLS`, `WL_MIN_AVG_VOLUME`, `WL_MAX_AVG_SPREAD_PCT`). В mini-backtest добавлена оценка market quality (`avg_volume`, `avg_spread_pct`) и включение причин `liquidity_low` / `spread_high` в `decision_reason` для итогового допуска актива.  
+Команды: `python -m unittest tests.test_backtest_mini_runner tests.test_signal_pipeline_resilience tests.test_bot_router -v`, полный регресс `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot tests.test_candle_builder tests.test_data_quality tests.test_data_fallback tests.test_ws_runtime tests.test_realtime_candle_pipeline tests.test_mexc_ws_adapter tests.test_persistence tests.test_bot_router tests.test_bot_profile_store tests.test_telegram_transport tests.test_reports_scheduler tests.test_strategy_selector tests.test_strategy_trend_pullback tests.test_strategy_volatility_breakout tests.test_strategy_liquidity_sweep tests.test_regime_classifier tests.test_ml_history_pipeline tests.test_feature_dataset_builder tests.test_ml_dataset_builder tests.test_ml_labeling tests.test_ml_training tests.test_ml_inference tests.test_risk_manager tests.test_risk_drawdown tests.test_risk_alerts tests.test_backtest_history tests.test_backtest_mini_runner tests.test_backtest_reporter tests.test_integration_user_flows tests.test_integration_multi_asset_backtest tests.test_signal_pipeline_resilience -v`  
+Тесты: Прогнано 120 unit/integration тестов, все успешны.  
+Как проверено: Подтверждено блокирование недопущенного символа в runtime и корректное выставление причин недопуска в mini-backtest; регрессий не обнаружено.  
+Результат: Подэтап `E7.5` завершен, whitelist активов по ликвидности и спреду добавлен в рабочий контур.  
+Commit: будет добавлен после фиксации изменений в git.
+
+---
+
 ## 5) TODO после MVP (согласовано)
 
 - Добавить whitelist активов по ликвидности и спреду.
