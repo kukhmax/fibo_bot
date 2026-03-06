@@ -212,6 +212,24 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(result.handled)
         self.assertIn("Текущий статус", result.response_text)
 
+    async def test_reply_keyboard_tf_and_risk_presets_dispatch_commands(self) -> None:
+        config = load_environment_config("dev")
+        router = build_default_router(config, profile_store=self._store)
+        tf_result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="🚀 TF 5m"))
+        risk_result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="🛡 Risk 1.0%"))
+        self.assertIn("Таймфрейм обновлен: 5m", tf_result.response_text)
+        self.assertIn("Риск на сделку обновлен: 1.0%", risk_result.response_text)
+
+    async def test_pairs_add_list_remove_flow(self) -> None:
+        config = load_environment_config("dev")
+        router = build_default_router(config, profile_store=self._store)
+        added = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/pair_add ETHUSDT 15m"))
+        listed = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/pairs"))
+        removed = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/pair_remove ETHUSDT"))
+        self.assertIn("Пара добавлена: ETHUSDT", added.response_text)
+        self.assertIn("ETHUSDT • 15m", listed.response_text)
+        self.assertIn("Пара удалена: ETHUSDT", removed.response_text)
+
     async def test_hide_menu_removes_reply_keyboard(self) -> None:
         config = load_environment_config("dev")
         router = build_default_router(config, profile_store=self._store)

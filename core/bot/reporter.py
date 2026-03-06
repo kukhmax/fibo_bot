@@ -8,6 +8,7 @@ from core.ml.artifacts import ModelArtifactStore
 class PositionReporter:
     def build_report(self, profile: TelegramUserProfile) -> str:
         now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        pairs_text = ", ".join(f"{pair.symbol}:{pair.timeframe}" for pair in profile.trading_pairs)
         positions_line = (
             "✅ Нет открытых позиций\n" if profile.open_positions_count == 0 else "⚠️ Есть открытые позиции\n"
         )
@@ -17,6 +18,7 @@ class PositionReporter:
             + f"🤖 Режим: {profile.mode}\n"
             + f"📈 Биржа: {profile.exchange}\n"
             + f"⏱ Таймфрейм: {profile.timeframe}\n"
+            + f"🧩 Пары: {pairs_text}\n"
             + f"🛡 Риск: {profile.risk_per_trade_pct}%\n"
             + f"🎯 RR: {profile.rr_ratio}\n"
             + f"🚫 DD: {profile.max_daily_drawdown_pct}%\n"

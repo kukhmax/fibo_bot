@@ -6,6 +6,12 @@ from core.data.persistence import StateCache
 
 
 @dataclass(frozen=True)
+class TradingPairSettings:
+    symbol: str
+    timeframe: str
+
+
+@dataclass(frozen=True)
 class TelegramUserProfile:
     user_id: int
     mode: str
@@ -19,6 +25,7 @@ class TelegramUserProfile:
     tp_pct: float
     open_positions_count: int
     position_report_minutes: int
+    trading_pairs: tuple[TradingPairSettings, ...]
 
 
 class TelegramUserProfileStore:
@@ -42,6 +49,7 @@ class TelegramUserProfileStore:
             tp_pct=1.0,
             open_positions_count=0,
             position_report_minutes=config.bot.position_report_minutes,
+            trading_pairs=(TradingPairSettings(symbol="BTCUSDT", timeframe=config.exchange.default_timeframe),),
         )
         self.save(created)
         return created
@@ -63,6 +71,7 @@ class TelegramUserProfileStore:
             tp_pct=float(payload.get("tp_pct", 1.0)),
             open_positions_count=int(payload.get("open_positions_count", 0)),
             position_report_minutes=int(payload["position_report_minutes"]),
+            trading_pairs=_parse_trading_pairs(payload.get("trading_pairs"), fallback_timeframe=str(payload["timeframe"])),
         )
 
     def save(self, profile: TelegramUserProfile) -> None:
@@ -70,3 +79,23 @@ class TelegramUserProfileStore:
 
     def _key(self, user_id: int) -> str:
         return f"profile:{user_id}"
+
+
+def _parse_trading_pairs(raw: object, fallback_timeframe: str) -> tuple[TradingPairSettings, ...]:
+    if not isinstance(raw, list):
+        return (TradingPairSettings(symbol="BTCUSDT", timeframe=fallback_timeframe),)
+    pairs: list[TradingPairSettings] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        symbol = str(item.get("symbol", "")).strip().upper()
+        timeframe = str(item.get("timeframe", "")).strip().lower()
+        if not symbol or not timeframe:
+            continue
+        pairs.append(TradingPairSettings(symbol=symbol, timeframe=timeframe))
+    if not pairs:
+        return (TradingPairSettings(symbol="BTCUSDT", timeframe=fallback_timeframe),)
+    unique: dict[str, TradingPairSettings] = {}
+    for pair in pairs:
+        unique[pair.symbol] = pair
+    return tuple(unique.values())

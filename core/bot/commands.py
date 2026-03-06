@@ -5,6 +5,7 @@ from core.bot.router import CommandContext
 from core.bot.router import CommandRouter
 from core.bot.profile import TelegramUserProfile
 from core.bot.profile import TelegramUserProfileStore
+from core.bot.profile import TradingPairSettings
 from core.backtest import load_backtest_candles
 from core.backtest import load_local_backtest_candles
 from core.backtest import run_mini_backtest
@@ -69,7 +70,7 @@ def build_default_router(
             "4) Проверь профиль через 📊 Статус\n"
             "5) Запусти 🧪 Mini-backtest для проверки актива\n\n"
             "Команды для быстрого доступа:\n"
-            "/menu /status /risk /tf_menu /mode_menu /backtest /positions /ml_report /readiness /hide_menu"
+            "/status /pairs /pair_add BTCUSDT 5m /pair_remove BTCUSDT /risk /tf_menu /mode_menu /backtest /positions /ml_report /readiness /hide_menu"
         )
 
     def hide_menu_handler(_: CommandContext, __: str) -> dict:
@@ -207,6 +208,7 @@ def build_default_router(
 
     def status_handler(ctx: CommandContext, __: str) -> str:
         profile = store.get_or_create(ctx.user_id, config)
+        pairs_text = ", ".join(f"{pair.symbol}:{pair.timeframe}" for pair in profile.trading_pairs)
         return (
             "📊 Текущий статус\n"
             f"🔐 Доступ: {config.bot.access_mode}\n"
@@ -219,9 +221,50 @@ def build_default_router(
             f"📦 Макс. позиций: {profile.max_open_positions}\n"
             f"🧯 SL: {profile.sl_pct}%\n"
             f"💰 TP: {profile.tp_pct}%\n"
+            f"🧩 Пары: {pairs_text}\n"
             f"📍 Открытых позиций: {profile.open_positions_count}\n"
             f"🔔 Интервал отчета: {profile.position_report_minutes} мин"
         )
+
+    def pairs_handler(ctx: CommandContext, __: str) -> str:
+        profile = store.get_or_create(ctx.user_id, config)
+        lines = ["🧩 Торговые пары", "━━━━━━━━━━━━━━"]
+        for index, pair in enumerate(profile.trading_pairs, start=1):
+            lines.append(f"{index}) {pair.symbol} • {pair.timeframe}")
+        lines.append("")
+        lines.append("Добавить: /pair_add BTCUSDT 5m")
+        lines.append("Удалить: /pair_remove BTCUSDT")
+        return "\n".join(lines)
+
+    def pair_add_handler(ctx: CommandContext, args: str) -> str:
+        profile = store.get_or_create(ctx.user_id, config)
+        if not _access_write_allowed(config):
+            return "Режим доступа notify_only: команда недоступна."
+        symbol, timeframe, errors = _parse_pair_args(args)
+        if errors:
+            return _format_profile_error(profile, errors)
+        merged = {item.symbol: item for item in profile.trading_pairs}
+        merged[symbol] = TradingPairSettings(symbol=symbol, timeframe=timeframe)
+        updated_pairs = tuple(merged[key] for key in sorted(merged))
+        updated = replace(profile, trading_pairs=updated_pairs)
+        store.save(updated)
+        return f"✅ Пара добавлена: {symbol} • {timeframe}\nВсего пар: {len(updated_pairs)}"
+
+    def pair_remove_handler(ctx: CommandContext, args: str) -> str:
+        profile = store.get_or_create(ctx.user_id, config)
+        if not _access_write_allowed(config):
+            return "Режим доступа notify_only: команда недоступна."
+        symbol = args.strip().upper()
+        if not symbol:
+            return "Укажи пару: /pair_remove BTCUSDT"
+        current = [item for item in profile.trading_pairs if item.symbol != symbol]
+        if len(current) == len(profile.trading_pairs):
+            return f"Пара не найдена: {symbol}"
+        if not current:
+            current = [TradingPairSettings(symbol="BTCUSDT", timeframe=profile.timeframe)]
+        updated = replace(profile, trading_pairs=tuple(current))
+        store.save(updated)
+        return f"✅ Пара удалена: {symbol}\nОсталось пар: {len(updated.trading_pairs)}"
 
     def readiness_handler(ctx: CommandContext, __: str) -> str:
         profile = store.get_or_create(ctx.user_id, config)
@@ -295,7 +338,7 @@ def build_default_router(
             (("🧯 SL/TP", "/risk_sl_tp"), ("❌ Закрыть позицию", "/close")),
             (("🔄 Обновить", "/risk"), ("🏠 Главное меню", "/menu")),
         )
-        return {"text": text, "inline_keyboard": inline}
+        return {"text": text, "inline_keyboard": inline, "reply_keyboard": _risk_menu_reply()}
 
     def risk_risk_handler(ctx: CommandContext, __: str) -> dict:
         profile = store.get_or_create(ctx.user_id, config)
@@ -308,7 +351,7 @@ def build_default_router(
             (("🛡 0.5%", "/set_risk 0.5"), ("🛡 1.0%", "/set_risk 1.0"), ("🛡 1.5%", "/set_risk 1.5")),
             (("⬅️ Назад в риск-меню", "/risk"), ("🏠 Главное меню", "/menu")),
         )
-        return {"text": text, "inline_keyboard": inline}
+        return {"text": text, "inline_keyboard": inline, "reply_keyboard": _risk_menu_reply()}
 
     def risk_rr_handler(ctx: CommandContext, __: str) -> dict:
         profile = store.get_or_create(ctx.user_id, config)
@@ -321,7 +364,7 @@ def build_default_router(
             (("🎯 1.5", "/set_rr 1.5"), ("🎯 2.0", "/set_rr 2.0"), ("🎯 2.5", "/set_rr 2.5")),
             (("⬅️ Назад в риск-меню", "/risk"), ("🏠 Главное меню", "/menu")),
         )
-        return {"text": text, "inline_keyboard": inline}
+        return {"text": text, "inline_keyboard": inline, "reply_keyboard": _risk_menu_reply()}
 
     def risk_dd_handler(ctx: CommandContext, __: str) -> dict:
         profile = store.get_or_create(ctx.user_id, config)
@@ -334,7 +377,7 @@ def build_default_router(
             (("🚫 5%", "/set_dd 5"), ("🚫 8%", "/set_dd 8"), ("🚫 10%", "/set_dd 10")),
             (("⬅️ Назад в риск-меню", "/risk"), ("🏠 Главное меню", "/menu")),
         )
-        return {"text": text, "inline_keyboard": inline}
+        return {"text": text, "inline_keyboard": inline, "reply_keyboard": _risk_menu_reply()}
 
     def risk_limits_handler(_: CommandContext, __: str) -> dict:
         text = "📦 Лимит открытых позиций"
@@ -342,7 +385,7 @@ def build_default_router(
             (("📦 1", "/set_maxpos 1"), ("📦 2", "/set_maxpos 2"), ("📦 3", "/set_maxpos 3")),
             (("⬅️ Назад в риск-меню", "/risk"), ("🏠 Главное меню", "/menu")),
         )
-        return {"text": text, "inline_keyboard": inline}
+        return {"text": text, "inline_keyboard": inline, "reply_keyboard": _risk_menu_reply()}
 
     def risk_sl_tp_handler(ctx: CommandContext, __: str) -> dict:
         profile = store.get_or_create(ctx.user_id, config)
@@ -356,7 +399,7 @@ def build_default_router(
             (("💰 TP 1.0%", "/set_tp 1.0"), ("💰 TP 2.0%", "/set_tp 2.0")),
             (("⬅️ Назад в риск-меню", "/risk"), ("🏠 Главное меню", "/menu")),
         )
-        return {"text": text, "inline_keyboard": inline}
+        return {"text": text, "inline_keyboard": inline, "reply_keyboard": _risk_menu_reply()}
 
     def menu_handler(_: CommandContext, __: str) -> dict:
         return {
@@ -365,6 +408,7 @@ def build_default_router(
                 "Выбери раздел кнопками под строкой ввода.\n"
                 "Все кнопки безопасны: они только меняют настройки профиля."
             ),
+            "reply_keyboard": _main_menu_reply(),
         }
 
     def tf_menu_handler(ctx: CommandContext, __: str) -> dict:
@@ -381,7 +425,7 @@ def build_default_router(
             (("🕐 1ч", "/set_tf 1h"), ("🌙 4ч", "/set_tf 4h")),
             (("🏠 Главное меню", "/menu"),),
         )
-        return {"text": text, "inline_keyboard": inline}
+        return {"text": text, "inline_keyboard": inline, "reply_keyboard": _tf_menu_reply()}
 
     def mode_menu_handler(ctx: CommandContext, __: str) -> dict:
         profile = store.get_or_create(ctx.user_id, config)
@@ -450,6 +494,9 @@ def build_default_router(
     router.add_route("/help", help_handler)
     router.add_route("/hide_menu", hide_menu_handler)
     router.add_route("/mode", mode_handler)
+    router.add_route("/pairs", pairs_handler)
+    router.add_route("/pair_add", pair_add_handler)
+    router.add_route("/pair_remove", pair_remove_handler)
     router.add_route("/set_tf", set_tf_handler)
     router.add_route("/set_risk", set_risk_handler)
     router.add_route("/set_rr", set_rr_handler)
@@ -533,6 +580,7 @@ def _apply_start_updates(
             tp_pct=tp_value,
             open_positions_count=profile.open_positions_count,
             position_report_minutes=report_value,
+            trading_pairs=profile.trading_pairs,
         ),
         [],
     )
@@ -540,10 +588,28 @@ def _apply_start_updates(
 
 def _main_menu_reply() -> tuple[tuple[str, ...], ...]:
     return (
-        ("📊 Статус", "📍 Позиции", "🏠 Меню"),
+        ("📊 Статус", "📍 Позиции", "🧩 Пары"),
         ("⏱ Таймфрейм", "🛡 Риск", "🤖 Режим"),
         ("🧪 Backtest", "🧠 ML отчет", "📰 News"),
         ("🧭 Readiness", "🙈 Скрыть меню"),
+    )
+
+
+def _risk_menu_reply() -> tuple[tuple[str, ...], ...]:
+    return (
+        ("🛡 Risk 0.5%", "🛡 Risk 1.0%", "🛡 Risk 1.5%"),
+        ("🎯 RR 1.5", "🎯 RR 2.0", "🎯 RR 2.5"),
+        ("🚫 DD 5%", "🚫 DD 8%", "🚫 DD 10%"),
+        ("📦 MaxPos 1", "📦 MaxPos 2", "📦 MaxPos 3"),
+        ("🧯 SL 0.5%", "🧯 SL 1.0%", "💰 TP 1.0%", "💰 TP 2.0%"),
+        ("📍 Позиции", "🏠 Меню"),
+    )
+
+
+def _tf_menu_reply() -> tuple[tuple[str, ...], ...]:
+    return (
+        ("⚡ TF 1m", "🚀 TF 5m", "📘 TF 15m"),
+        ("🕐 TF 1h", "🌙 TF 4h", "🏠 Меню"),
     )
 
 
@@ -569,6 +635,26 @@ def _parse_timeframe(raw: str, errors: list[str]) -> str:
     if value not in {"1m", "5m", "15m", "1h", "4h"}:
         errors.append("timeframe должен быть 1m|5m|15m|1h|4h")
     return value
+
+
+def _parse_pair_args(args: str) -> tuple[str, str, list[str]]:
+    errors: list[str] = []
+    symbol = ""
+    timeframe = ""
+    tokens = args.split()
+    if len(tokens) >= 1:
+        symbol = tokens[0].strip().upper()
+    if len(tokens) >= 2:
+        timeframe = tokens[1].strip().lower()
+    if not symbol:
+        errors.append("symbol обязателен, пример: /pair_add BTCUSDT 5m")
+    elif symbol not in BACKTEST_SYMBOLS:
+        errors.append("symbol должен быть BTCUSDT|ETHUSDT|SOLUSDT")
+    if not timeframe:
+        errors.append("timeframe обязателен, пример: /pair_add BTCUSDT 5m")
+    elif timeframe not in {"1m", "5m", "15m", "1h", "4h"}:
+        errors.append("timeframe должен быть 1m|5m|15m|1h|4h")
+    return symbol, timeframe, errors
 
 
 def _parse_risk(raw: str, errors: list[str]) -> float:

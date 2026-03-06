@@ -23,6 +23,8 @@ class TestBotProfileStore(unittest.TestCase):
             self.assertEqual(profile.sl_pct, 0.5)
             self.assertEqual(profile.tp_pct, 1.0)
             self.assertEqual(profile.open_positions_count, 0)
+            self.assertEqual(len(profile.trading_pairs), 1)
+            self.assertEqual(profile.trading_pairs[0].symbol, "BTCUSDT")
 
     def test_profile_persists_across_store_instances(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
