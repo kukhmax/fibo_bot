@@ -211,6 +211,12 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         self.assertIn("signals_total=", result.response_text)
         self.assertIn("signals_after_ml=", result.response_text)
         self.assertIn("signals_blocked_ml=", result.response_text)
+        self.assertIn("trades=", result.response_text)
+        self.assertIn("winrate=", result.response_text)
+        self.assertIn("pf=", result.response_text)
+        self.assertIn("max_dd_r=", result.response_text)
+        self.assertIn("avg_rr=", result.response_text)
+        self.assertIn("expectancy_r=", result.response_text)
 
     async def test_backtest_rejects_invalid_symbol(self) -> None:
         config = load_environment_config("dev")

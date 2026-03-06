@@ -14,6 +14,12 @@ class MiniBacktestRunReport:
     entries_total: int
     entries_after_ml: int
     entries_blocked_ml: int
+    trades: int
+    winrate: float
+    profit_factor: float
+    max_drawdown_r: float
+    avg_rr: float
+    expectancy_r: float
     regime_counts: dict[str, int]
     strategy_entry_counts: dict[str, int]
 
@@ -31,8 +37,9 @@ def run_mini_backtest(candles: list[Candle], ml_filter=None) -> MiniBacktestRunR
     entries_blocked_ml = 0
     regime_counts: dict[str, int] = {}
     strategy_entry_counts: dict[str, int] = {}
+    trade_r_values: list[float] = []
     window: list[Candle] = []
-    for candle in ordered:
+    for index, candle in enumerate(ordered):
         window.append(candle)
         recent = window[-30:]
         regime = classifier.classify(recent)
@@ -50,13 +57,83 @@ def run_mini_backtest(candles: list[Candle], ml_filter=None) -> MiniBacktestRunR
             allow = bool(inference.allow)
         if allow:
             entries_after_ml += 1
+            if index + 1 < len(ordered):
+                next_candle = ordered[index + 1]
+                trade_r_values.append(_estimate_trade_r(candle, next_candle, decision.direction))
         else:
             entries_blocked_ml += 1
+    metrics = _calc_metrics(trade_r_values)
     return MiniBacktestRunReport(
         candles_count=len(ordered),
         entries_total=entries_total,
         entries_after_ml=entries_after_ml,
         entries_blocked_ml=entries_blocked_ml,
+        trades=metrics["trades"],
+        winrate=metrics["winrate"],
+        profit_factor=metrics["profit_factor"],
+        max_drawdown_r=metrics["max_drawdown_r"],
+        avg_rr=metrics["avg_rr"],
+        expectancy_r=metrics["expectancy_r"],
         regime_counts=regime_counts,
         strategy_entry_counts=strategy_entry_counts,
     )
+
+
+def _estimate_trade_r(entry_candle: Candle, next_candle: Candle, direction: str | None) -> float:
+    risk_unit = max(entry_candle.high - entry_candle.low, abs(entry_candle.close) * 0.001, 1e-9)
+    raw_move = next_candle.close - entry_candle.close
+    if direction == "SELL":
+        raw_move = -raw_move
+    r = raw_move / risk_unit
+    if r > 3.0:
+        return 3.0
+    if r < -3.0:
+        return -3.0
+    return float(r)
+
+
+def _calc_metrics(trade_r_values: list[float]) -> dict[str, float | int]:
+    trades = len(trade_r_values)
+    if trades == 0:
+        return {
+            "trades": 0,
+            "winrate": 0.0,
+            "profit_factor": 0.0,
+            "max_drawdown_r": 0.0,
+            "avg_rr": 0.0,
+            "expectancy_r": 0.0,
+        }
+    wins = [item for item in trade_r_values if item > 0]
+    losses = [item for item in trade_r_values if item < 0]
+    gross_profit = sum(wins)
+    gross_loss = abs(sum(losses))
+    winrate = len(wins) / trades
+    if gross_loss == 0.0:
+        profit_factor = gross_profit if gross_profit > 0 else 0.0
+    else:
+        profit_factor = gross_profit / gross_loss
+    avg_win = gross_profit / len(wins) if wins else 0.0
+    avg_loss = gross_loss / len(losses) if losses else 0.0
+    if avg_loss == 0.0:
+        avg_rr = avg_win if avg_win > 0 else 0.0
+    else:
+        avg_rr = avg_win / avg_loss
+    expectancy_r = sum(trade_r_values) / trades
+    equity = 0.0
+    peak = 0.0
+    max_drawdown_r = 0.0
+    for value in trade_r_values:
+        equity += value
+        if equity > peak:
+            peak = equity
+        drawdown = peak - equity
+        if drawdown > max_drawdown_r:
+            max_drawdown_r = drawdown
+    return {
+        "trades": trades,
+        "winrate": float(winrate),
+        "profit_factor": float(profit_factor),
+        "max_drawdown_r": float(max_drawdown_r),
+        "avg_rr": float(avg_rr),
+        "expectancy_r": float(expectancy_r),
+    }

@@ -320,9 +320,15 @@ def build_default_router(
             f"signals_total={backtest_report.entries_total}\n"
             f"signals_after_ml={backtest_report.entries_after_ml}\n"
             f"signals_blocked_ml={backtest_report.entries_blocked_ml}\n"
+            f"trades={backtest_report.trades}\n"
+            f"winrate={backtest_report.winrate:.4f}\n"
+            f"pf={backtest_report.profit_factor:.4f}\n"
+            f"max_dd_r={backtest_report.max_drawdown_r:.4f}\n"
+            f"avg_rr={backtest_report.avg_rr:.4f}\n"
+            f"expectancy_r={backtest_report.expectancy_r:.4f}\n"
             f"regimes={regime_summary}\n"
             f"strategies={strategy_summary}\n"
-            "Шаг 3/4 завершен: стратегии и ML-фильтр прогнаны."
+            "Шаг 4/4 завершен: метрики mini-backtest рассчитаны."
         )
         inline = ((( "Изменить выбор", "/backtest"),),)
         return {"text": text, "inline_keyboard": inline}
