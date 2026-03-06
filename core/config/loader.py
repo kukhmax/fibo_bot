@@ -32,6 +32,9 @@ def load_environment_config(environment: str) -> EnvironmentConfig:
     max_daily_drawdown_pct = float(risk_payload["max_daily_drawdown_pct"])
     if max_daily_drawdown_pct <= 0 or max_daily_drawdown_pct > 10:
         raise ValueError(f"Invalid max_daily_drawdown_pct in {config_path.name}: must be in range 0..10")
+    pause_until_utc_hour = int(risk_payload["pause_until_utc_hour"])
+    if pause_until_utc_hour < 0 or pause_until_utc_hour > 23:
+        raise ValueError(f"Invalid pause_until_utc_hour in {config_path.name}: must be in range 0..23")
 
     return EnvironmentConfig(
         environment=payload["environment"],

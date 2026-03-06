@@ -576,7 +576,21 @@ Commit: `a05a17c`
 
 ---
 
+Дата/время (UTC): 2026-03-06  
+Подэтап: `E5.3`  
+Что сделано: Реализована авто-пауза торговли до следующего UTC-дня после срабатывания лимита дневной просадки.  
+Какие файлы изменены: `core/risk/drawdown.py`, `core/bot/main.py`, `core/config/loader.py`, `tests/test_risk_drawdown.py`, `tests/test_config_loader.py`, `DEVELOP.md`  
+Реализованная логика: `DailyDrawdownGuard` теперь фиксирует состояние паузы после превышения лимита и возвращает блокировку с причиной `paused_until_utc_00` до смены UTC-дня. В runtime добавлен учет `pause_until_utc_hour` из конфига и расширен текст блокировки. В config loader добавлена валидация `pause_until_utc_hour` в диапазоне `0..23`.  
+Команды: `python -m unittest tests.test_risk_drawdown tests.test_bot_router tests.test_config_loader -v`, полный регресс `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot tests.test_candle_builder tests.test_data_quality tests.test_data_fallback tests.test_ws_runtime tests.test_realtime_candle_pipeline tests.test_mexc_ws_adapter tests.test_persistence tests.test_bot_router tests.test_bot_profile_store tests.test_telegram_transport tests.test_reports_scheduler tests.test_strategy_selector tests.test_strategy_trend_pullback tests.test_strategy_volatility_breakout tests.test_strategy_liquidity_sweep tests.test_regime_classifier tests.test_ml_history_pipeline tests.test_feature_dataset_builder tests.test_ml_dataset_builder tests.test_ml_labeling tests.test_ml_training tests.test_ml_inference tests.test_risk_manager tests.test_risk_drawdown -v`  
+Тесты: Прогнано 94 unit-теста, все успешны; добавлен тест сценария паузы до следующего UTC-дня.  
+Как проверено: Подтверждены срабатывание паузы в день превышения лимита и автоматическое снятие блокировки после наступления нового UTC-дня.  
+Результат: Подэтап `E5.3` завершен, авто-пауза риска до UTC 00:00 работает в signal/paper runtime.  
+Commit: будет добавлен после фиксации изменений в git.
+
+---
+
 ## 5) TODO после MVP (согласовано)
 
 - Добавить whitelist активов по ликвидности и спреду.
 - Добавить полноценный news-engine (временный ориентир: t.me/cryptoarsenal).
+- “мастер-меню” /risk с подэкранами (отдельно Risk / RR / DD + кнопка “назад”).

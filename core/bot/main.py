@@ -99,7 +99,10 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
     )
     ml_enabled = bool(config_env.ml.enabled)
     risk_manager = RiskManager()
-    drawdown_guard = DailyDrawdownGuard(max_daily_drawdown_pct=float(config_env.risk.max_daily_drawdown_pct))
+    drawdown_guard = DailyDrawdownGuard(
+        max_daily_drawdown_pct=float(config_env.risk.max_daily_drawdown_pct),
+        pause_until_utc_hour=int(config_env.risk.pause_until_utc_hour),
+    )
     default_equity = float(os.getenv("PAPER_START_EQUITY", "1000"))
 
     async def on_candle(candle):
@@ -155,11 +158,12 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
                 max_daily_drawdown_pct=max_daily_drawdown_pct,
             )
             if not drawdown_check.allowed:
+                pause_note = f" reason={drawdown_check.reason}" if drawdown_check.reason.startswith("paused_until_utc_") else ""
                 transport.send_text(
                     chat_id=user_id,
                     text=(
                         f"risk_blocked: daily_drawdown={drawdown_check.drawdown_pct:.2f}% "
-                        f"limit={drawdown_check.max_drawdown_pct:.2f}%"
+                        f"limit={drawdown_check.max_drawdown_pct:.2f}%{pause_note}"
                     ),
                 )
                 continue
