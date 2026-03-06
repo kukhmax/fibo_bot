@@ -706,6 +706,32 @@ Commit: `295df5b`
 
 ---
 
+Дата/время (UTC): 2026-03-06  
+Подэтап: `Post E6 UX + Docker smoke-check`  
+Что сделано: Улучшен UX Telegram-интерфейса для непрофильных пользователей и подтвержден запуск в Docker-контуре.  
+Какие файлы изменены: `core/bot/commands.py`, `core/bot/telegram_transport.py`, `core/bot/main.py`, `tests/test_bot_router.py`, `tests/test_telegram_transport.py`, `DEVELOP.md`  
+Реализованная логика: Переписаны ключевые ответы (`/start`, `/help`, `/status`) на понятный язык с эмодзи, добавлены inline-меню (`/menu`, `/tf_menu`, `/mode_menu`) и человеко-читаемые кнопки выбора параметров. Постоянная клавиатура отключена через `remove_keyboard`, чтобы кнопки не занимали экран всегда. Дополнительно исправлен порядок точки входа в `core.bot.main` для стабильного старта контейнера (`_run_app` определяется до вызова `main()`).  
+Команды: `python -m unittest tests.test_bot_router tests.test_telegram_transport -v`, `docker compose -f infra/docker/docker-compose.yml up -d --build`, `docker compose -f infra/docker/docker-compose.yml ps`, `docker compose -f infra/docker/docker-compose.yml logs --no-color --tail 40 app`  
+Тесты: 29/29 unit-тестов успешно; в Docker подтверждено состояние сервисов `redis/postgres/app`, app перешел в `healthy`.  
+Как проверено: Смоук-проверен запуск Telegram app-контейнера после пересборки образа, подтверждено отсутствие runtime-падений и корректная доставка новых UX-сообщений/клавиатурных настроек в тестовом контуре.  
+Результат: UX интерфейса обновлен под non-tech пользователей, docker-старт и health-check стабильны.  
+Commit: `1095db9`
+
+---
+
+Дата/время (UTC): 2026-03-06  
+Подэтап: `E7.1`  
+Что сделано: Добавлены интеграционные тесты ключевых пользовательских сценариев Telegram-контура.  
+Какие файлы изменены: `tests/test_integration_user_flows.py`, `DEVELOP.md`  
+Реализованная логика: Добавлен интеграционный набор `TestIntegrationUserFlows` с двумя end-to-end сценариями через `TelegramBotRuntime`: (1) onboarding-поток `/start -> /menu -> /tf_menu -> /set_tf -> /status`; (2) поток смены режима и риск-пресетов `/mode_menu -> /mode paper -> /risk -> /set_risk -> /set_rr -> /status`. Проверяются тексты ответов, inline-навигация и факт применения настроек в финальном статусе.  
+Команды: `python -m unittest tests.test_integration_user_flows -v`, полный регресс `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot tests.test_candle_builder tests.test_data_quality tests.test_data_fallback tests.test_ws_runtime tests.test_realtime_candle_pipeline tests.test_mexc_ws_adapter tests.test_persistence tests.test_bot_router tests.test_bot_profile_store tests.test_telegram_transport tests.test_reports_scheduler tests.test_strategy_selector tests.test_strategy_trend_pullback tests.test_strategy_volatility_breakout tests.test_strategy_liquidity_sweep tests.test_regime_classifier tests.test_ml_history_pipeline tests.test_feature_dataset_builder tests.test_ml_dataset_builder tests.test_ml_labeling tests.test_ml_training tests.test_ml_inference tests.test_risk_manager tests.test_risk_drawdown tests.test_risk_alerts tests.test_backtest_history tests.test_backtest_mini_runner tests.test_backtest_reporter tests.test_integration_user_flows -v`  
+Тесты: Прогнано 113 unit/integration тестов, все успешны.  
+Как проверено: Подтверждена корректная связка runtime + router + transport-совместимый контракт для пользовательских потоков с callback-выборами параметров.  
+Результат: Подэтап `E7.1` завершен, интеграционные сценарии Telegram покрыты автотестами.  
+Commit: будет добавлен после фиксации изменений в git.
+
+---
+
 ## 5) TODO после MVP (согласовано)
 
 - Добавить whitelist активов по ликвидности и спреду.
