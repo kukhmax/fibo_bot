@@ -680,6 +680,19 @@ Commit: `b0b184f`
 
 ---
 
+Дата/время (UTC): 2026-03-06  
+Подэтап: `E6.5`  
+Что сделано: Добавлен структурированный формат mini-backtest отчета для отправки в Telegram.  
+Какие файлы изменены: `core/bot/reporter.py`, `core/bot/commands.py`, `tests/test_backtest_reporter.py`, `tests/test_backtest_mini_runner.py`, `tests/test_bot_router.py`, `DEVELOP.md`  
+Реализованная логика: Введен `MiniBacktestReporter`, который формирует единый многораздельный отчет (`Параметры`, `Сигналы`, `Метрики`, `Распределения`) с timestamp. Команда `/backtest` переведена на этот форматер, что стабилизирует структуру и упрощает последующие этапы E6.6.  
+Команды: `python -m unittest tests.test_backtest_reporter tests.test_backtest_mini_runner tests.test_bot_router -v`, полный регресс `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot tests.test_candle_builder tests.test_data_quality tests.test_data_fallback tests.test_ws_runtime tests.test_realtime_candle_pipeline tests.test_mexc_ws_adapter tests.test_persistence tests.test_bot_router tests.test_bot_profile_store tests.test_telegram_transport tests.test_reports_scheduler tests.test_strategy_selector tests.test_strategy_trend_pullback tests.test_strategy_volatility_breakout tests.test_strategy_liquidity_sweep tests.test_regime_classifier tests.test_ml_history_pipeline tests.test_feature_dataset_builder tests.test_ml_dataset_builder tests.test_ml_labeling tests.test_ml_training tests.test_ml_inference tests.test_risk_manager tests.test_risk_drawdown tests.test_risk_alerts tests.test_backtest_history tests.test_backtest_mini_runner tests.test_backtest_reporter -v`  
+Тесты: Прогнано 108 unit-тестов, все успешны; добавлен отдельный тест структурного репортера и расширены проверки `/backtest` ответа.  
+Как проверено: Подтверждена стабильная структура Telegram-отчета и корректная интеграция с текущими метриками mini-backtest.  
+Результат: Подэтап `E6.5` завершен, `/backtest` отправляет структурированный отчет.  
+Commit: будет добавлен после фиксации изменений в git.
+
+---
+
 ## 5) TODO после MVP (согласовано)
 
 - Добавить whitelist активов по ликвидности и спреду.

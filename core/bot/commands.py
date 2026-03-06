@@ -10,6 +10,7 @@ from core.backtest import run_mini_backtest
 from core.config.models import EnvironmentConfig
 from core.ml.artifacts import ModelArtifactStore
 from core.ml.inference import MlSignalFilter
+from core.bot.reporter import MiniBacktestReporter
 from core.bot.reporter import MlQualityReporter
 from core.bot.reporter import PositionReporter
 from core.risk import RiskManager
@@ -300,35 +301,13 @@ def build_default_router(
         candles = load_backtest_candles(symbol=symbol, timeframe=timeframe, limit=3000)
         backtest_report = run_mini_backtest(candles=candles, ml_filter=MlSignalFilter())
         fetch_status = "ok" if len(candles) >= 3000 else "partial"
-        regime_summary = ",".join(
-            f"{label}:{count}" for label, count in sorted(backtest_report.regime_counts.items(), key=lambda item: item[0])
-        )
-        strategy_summary = ",".join(
-            f"{name}:{count}" for name, count in sorted(backtest_report.strategy_entry_counts.items(), key=lambda item: item[0])
-        )
-        if not regime_summary:
-            regime_summary = "none"
-        if not strategy_summary:
-            strategy_summary = "none"
-        text = (
-            "Mini-backtest\n"
-            f"symbol={symbol}\n"
-            f"timeframe={timeframe}\n"
-            f"candles_local_before={len(local_candles)}\n"
-            f"candles_loaded={len(candles)}\n"
-            f"remote_fetch={fetch_status}\n"
-            f"signals_total={backtest_report.entries_total}\n"
-            f"signals_after_ml={backtest_report.entries_after_ml}\n"
-            f"signals_blocked_ml={backtest_report.entries_blocked_ml}\n"
-            f"trades={backtest_report.trades}\n"
-            f"winrate={backtest_report.winrate:.4f}\n"
-            f"pf={backtest_report.profit_factor:.4f}\n"
-            f"max_dd_r={backtest_report.max_drawdown_r:.4f}\n"
-            f"avg_rr={backtest_report.avg_rr:.4f}\n"
-            f"expectancy_r={backtest_report.expectancy_r:.4f}\n"
-            f"regimes={regime_summary}\n"
-            f"strategies={strategy_summary}\n"
-            "Шаг 4/4 завершен: метрики mini-backtest рассчитаны."
+        text = MiniBacktestReporter().build_report(
+            symbol=symbol,
+            timeframe=timeframe,
+            candles_local_before=len(local_candles),
+            candles_loaded=len(candles),
+            remote_fetch=fetch_status,
+            report=backtest_report,
         )
         inline = ((( "Изменить выбор", "/backtest"),),)
         return {"text": text, "inline_keyboard": inline}

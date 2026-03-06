@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 
+from core.backtest import MiniBacktestRunReport
 from core.bot.profile import TelegramUserProfile
 from core.ml.artifacts import ModelArtifactStore
 
@@ -35,3 +36,47 @@ class MlQualityReporter:
             f"features={','.join(artifact.feature_names)}\n"
             f"ts={now}"
         )
+
+
+class MiniBacktestReporter:
+    def build_report(
+        self,
+        symbol: str,
+        timeframe: str,
+        candles_local_before: int,
+        candles_loaded: int,
+        remote_fetch: str,
+        report: MiniBacktestRunReport,
+    ) -> str:
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        regime_summary = self._summary(report.regime_counts)
+        strategy_summary = self._summary(report.strategy_entry_counts)
+        return (
+            "Mini-backtest отчет\n"
+            f"[Параметры]\n"
+            f"symbol={symbol}\n"
+            f"timeframe={timeframe}\n"
+            f"candles_local_before={candles_local_before}\n"
+            f"candles_loaded={candles_loaded}\n"
+            f"remote_fetch={remote_fetch}\n"
+            f"[Сигналы]\n"
+            f"signals_total={report.entries_total}\n"
+            f"signals_after_ml={report.entries_after_ml}\n"
+            f"signals_blocked_ml={report.entries_blocked_ml}\n"
+            f"[Метрики]\n"
+            f"trades={report.trades}\n"
+            f"winrate={report.winrate:.4f}\n"
+            f"pf={report.profit_factor:.4f}\n"
+            f"max_dd_r={report.max_drawdown_r:.4f}\n"
+            f"avg_rr={report.avg_rr:.4f}\n"
+            f"expectancy_r={report.expectancy_r:.4f}\n"
+            f"[Распределения]\n"
+            f"regimes={regime_summary}\n"
+            f"strategies={strategy_summary}\n"
+            f"ts={now}"
+        )
+
+    def _summary(self, payload: dict[str, int]) -> str:
+        if not payload:
+            return "none"
+        return ",".join(f"{key}:{value}" for key, value in sorted(payload.items(), key=lambda item: item[0]))
