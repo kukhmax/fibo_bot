@@ -641,6 +641,19 @@ Commit: `bb2f417`
 
 ---
 
+Дата/время (UTC): 2026-03-06  
+Подэтап: `E6.2`  
+Что сделано: Реализована загрузка до 3000 свечей выбранного актива/ТФ для mini-backtest с биржевым fallback и сохранением в локальную историю.  
+Какие файлы изменены: `core/backtest/history.py`, `core/backtest/__init__.py`, `core/bot/commands.py`, `tests/test_backtest_history.py`, `DEVELOP.md`  
+Реализованная логика: Добавлен `load_backtest_candles`, который при нехватке локальных данных догружает свечи через `MultiExchangeHistoricalData` (primary+backup), выполняет dedup по `open_time_ms`, сохраняет недостающие свечи локально и возвращает до `limit=3000`. Команда `/backtest` обновлена: теперь показывает `candles_local_before`, `candles_loaded` и `remote_fetch`.  
+Команды: `python -m unittest tests.test_backtest_history tests.test_bot_router tests.test_persistence -v`, полный регресс `python -m unittest tests.test_config_loader tests.test_secrets_loader tests.test_health_snapshot tests.test_candle_builder tests.test_data_quality tests.test_data_fallback tests.test_ws_runtime tests.test_realtime_candle_pipeline tests.test_mexc_ws_adapter tests.test_persistence tests.test_bot_router tests.test_bot_profile_store tests.test_telegram_transport tests.test_reports_scheduler tests.test_strategy_selector tests.test_strategy_trend_pullback tests.test_strategy_volatility_breakout tests.test_strategy_liquidity_sweep tests.test_regime_classifier tests.test_ml_history_pipeline tests.test_feature_dataset_builder tests.test_ml_dataset_builder tests.test_ml_labeling tests.test_ml_training tests.test_ml_inference tests.test_risk_manager tests.test_risk_drawdown tests.test_risk_alerts tests.test_backtest_history -v`  
+Тесты: Прогнано 105 unit-тестов, все успешны; добавлены тесты локального сценария и remote merge+dedup для backtest-загрузчика.  
+Как проверено: Подтверждена догрузка данных при недостатке локальной истории, корректный dedup и отсутствие регрессий в Telegram-роутере и persistence слое.  
+Результат: Подэтап `E6.2` завершен, загрузка 3000 свечей для mini-backtest доступна из Telegram-команды.  
+Commit: будет добавлен после фиксации изменений в git.
+
+---
+
 ## 5) TODO после MVP (согласовано)
 
 - Добавить whitelist активов по ликвидности и спреду.

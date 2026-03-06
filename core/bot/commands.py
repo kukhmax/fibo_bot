@@ -4,6 +4,7 @@ from core.bot.router import CommandContext
 from core.bot.router import CommandRouter
 from core.bot.profile import TelegramUserProfile
 from core.bot.profile import TelegramUserProfileStore
+from core.backtest import load_backtest_candles
 from core.backtest import load_local_backtest_candles
 from core.config.models import EnvironmentConfig
 from core.ml.artifacts import ModelArtifactStore
@@ -293,13 +294,17 @@ def build_default_router(
         if errors:
             text = "Ошибка mini-backtest: " + "; ".join(errors)
             return {"text": text, "inline_keyboard": None}
-        candles = load_local_backtest_candles(symbol=symbol, timeframe=timeframe, limit=3000)
+        local_candles = load_local_backtest_candles(symbol=symbol, timeframe=timeframe, limit=3000)
+        candles = load_backtest_candles(symbol=symbol, timeframe=timeframe, limit=3000)
+        fetch_status = "ok" if len(candles) >= 3000 else "partial"
         text = (
             "Mini-backtest\n"
             f"symbol={symbol}\n"
             f"timeframe={timeframe}\n"
-            f"candles_local={len(candles)}\n"
-            "Шаг 1/4 завершен: параметры выбора приняты."
+            f"candles_local_before={len(local_candles)}\n"
+            f"candles_loaded={len(candles)}\n"
+            f"remote_fetch={fetch_status}\n"
+            "Шаг 2/4 завершен: загружено до 3000 свечей."
         )
         inline = ((( "Изменить выбор", "/backtest"),),)
         return {"text": text, "inline_keyboard": inline}
