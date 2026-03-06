@@ -205,6 +205,21 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(any("⏱" in item for item in labels))
         self.assertTrue(any("🛡" in item for item in labels))
 
+    async def test_reply_keyboard_text_button_dispatches_command(self) -> None:
+        config = load_environment_config("dev")
+        router = build_default_router(config, profile_store=self._store)
+        result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="📊 Статус"))
+        self.assertTrue(result.handled)
+        self.assertIn("Текущий статус", result.response_text)
+
+    async def test_hide_menu_removes_reply_keyboard(self) -> None:
+        config = load_environment_config("dev")
+        router = build_default_router(config, profile_store=self._store)
+        result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/hide_menu"))
+        self.assertTrue(result.handled)
+        self.assertEqual(result.reply_keyboard, ())
+        self.assertIn("Меню скрыто", result.response_text)
+
     async def test_tf_menu_returns_timeframe_buttons(self) -> None:
         config = load_environment_config("dev")
         router = build_default_router(config, profile_store=self._store)
@@ -338,7 +353,7 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(transport.sent_messages), 2)
         self.assertIn("/start", transport.sent_messages[0][1])
         self.assertIn("Неизвестная команда", transport.sent_messages[1][1])
-        self.assertIsNone(transport.sent_messages[0][2])
+        self.assertIsNotNone(transport.sent_messages[0][2])
         self.assertIsNone(transport.sent_messages[0][3])
 
     async def test_ml_report_returns_not_found_without_artifact(self) -> None:

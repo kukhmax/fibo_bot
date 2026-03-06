@@ -2,6 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 import time
+from unittest.mock import patch
 
 from core.bot import CommandRouter, TelegramBotRuntime, IncomingMessage, build_default_router, TelegramUserProfileStore
 from core.config import load_environment_config
@@ -37,7 +38,8 @@ class TestReportsScheduler(unittest.IsolatedAsyncioTestCase):
             router = build_default_router(config, profile_store=store)
             runtime = TelegramBotRuntime(router=router, transport=transport, profile_store=store, report_state=report_state)
 
-            processed = await runtime.process_once()
+            with patch.dict("os.environ", {"AUTO_POSITION_REPORTS": "1"}, clear=False):
+                processed = await runtime.process_once()
             self.assertEqual(processed, 0)
             self.assertTrue(any(chat_id == 777 for (chat_id, _text) in transport.sent_messages))
 

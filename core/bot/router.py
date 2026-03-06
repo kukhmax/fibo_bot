@@ -63,7 +63,23 @@ class CommandRouter:
     def _parse_command(self, text: str) -> tuple[str | None, str]:
         stripped = text.strip()
         if not stripped.startswith("/"):
-            return None, ""
+            quick_map = {
+                "📊 Статус": "/status",
+                "📍 Позиции": "/positions",
+                "🏠 Меню": "/menu",
+                "⏱ Таймфрейм": "/tf_menu",
+                "🛡 Риск": "/risk",
+                "🤖 Режим": "/mode_menu",
+                "🧪 Backtest": "/backtest",
+                "🧠 ML отчет": "/ml_report",
+                "📰 News": "/news",
+                "🧭 Readiness": "/readiness",
+                "🙈 Скрыть меню": "/hide_menu",
+            }
+            mapped = quick_map.get(stripped)
+            if mapped is None:
+                return None, ""
+            stripped = mapped
         parts = stripped.split(maxsplit=1)
         command = self._normalize(parts[0].split("@", 1)[0])
         args = parts[1] if len(parts) > 1 else ""

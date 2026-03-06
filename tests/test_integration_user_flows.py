@@ -58,7 +58,7 @@ class TestIntegrationUserFlows(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(processed, 5)
             self.assertEqual(len(transport.sent_messages), 5)
             self.assertIn("Добро пожаловать", transport.sent_messages[0][1])
-            self.assertEqual(transport.sent_messages[0][2], ())
+            self.assertIsNotNone(transport.sent_messages[0][2])
             self.assertIn("Выбор таймфрейма", transport.sent_messages[2][1])
             self.assertIn("Таймфрейм обновлен: 1h", transport.sent_messages[3][1])
             self.assertIn("Таймфрейм: 1h", transport.sent_messages[4][1])

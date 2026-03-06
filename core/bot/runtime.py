@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import os
 from typing import Protocol
 import time
 
@@ -72,6 +73,8 @@ class TelegramBotRuntime:
     def _maybe_send_scheduled_reports(self) -> None:
         if self._profiles is None:
             return
+        if not bool(int(os.getenv("AUTO_POSITION_REPORTS", "0"))):
+            return
         state = self._profiles._cache.load()
         now = int(time.time())
         for key, payload in state.items():
@@ -88,7 +91,10 @@ class TelegramBotRuntime:
             if interval_min <= 0:
                 continue
             last_sent = int(self._report_state.get(f"last:{user_id}", 0) or 0)
-            due = last_sent == 0 or (now - last_sent) >= interval_min * 60
+            if last_sent == 0:
+                self._report_state.set(f"last:{user_id}", now)
+                continue
+            due = (now - last_sent) >= interval_min * 60
             if not due:
                 continue
             profile = self._profiles.get(user_id)

@@ -29,6 +29,7 @@ def build_default_router(
     ml_artifact_store: ModelArtifactStore | None = None,
 ) -> CommandRouter:
     router = CommandRouter()
+    router.set_reply_keyboard(_main_menu_reply())
     store = profile_store or TelegramUserProfileStore()
     ml_reporter = MlQualityReporter(artifact_store=ml_artifact_store)
 
@@ -57,7 +58,7 @@ def build_default_router(
             f"🔔 Отчёт каждые: {profile.position_report_minutes} мин\n\n"
             "Выбери действие кнопками ниже 👇"
         )
-        return {"text": text, "inline_keyboard": _main_menu_inline(), "reply_keyboard": ()}
+        return {"text": text, "inline_keyboard": _main_menu_inline()}
 
     def help_handler(_: CommandContext, __: str) -> str:
         return (
@@ -68,8 +69,11 @@ def build_default_router(
             "4) Проверь профиль через 📊 Статус\n"
             "5) Запусти 🧪 Mini-backtest для проверки актива\n\n"
             "Команды для быстрого доступа:\n"
-            "/menu /status /risk /tf_menu /mode_menu /backtest /positions /ml_report /readiness"
+            "/menu /status /risk /tf_menu /mode_menu /backtest /positions /ml_report /readiness /hide_menu"
         )
+
+    def hide_menu_handler(_: CommandContext, __: str) -> dict:
+        return {"text": "Меню скрыто. Чтобы вернуть кнопки, нажми /menu.", "reply_keyboard": ()}
 
     def mode_handler(ctx: CommandContext, args: str) -> str:
         profile = store.get_or_create(ctx.user_id, config)
@@ -361,7 +365,6 @@ def build_default_router(
                 "Выбери раздел. Все кнопки безопасны: они только меняют настройки профиля."
             ),
             "inline_keyboard": _main_menu_inline(),
-            "reply_keyboard": (),
         }
 
     def tf_menu_handler(ctx: CommandContext, __: str) -> dict:
@@ -445,6 +448,7 @@ def build_default_router(
 
     router.add_route("/start", start_handler)
     router.add_route("/help", help_handler)
+    router.add_route("/hide_menu", hide_menu_handler)
     router.add_route("/mode", mode_handler)
     router.add_route("/set_tf", set_tf_handler)
     router.add_route("/set_risk", set_risk_handler)
@@ -541,6 +545,15 @@ def _main_menu_inline() -> tuple[tuple[tuple[str, str], ...], ...]:
         (("🤖 Режим", "/mode_menu"), ("🧪 Mini-backtest", "/backtest")),
         (("🧠 ML отчет", "/ml_report"), ("📰 News", "/news")),
         (("🧭 Live readiness", "/readiness"), ("❓ Помощь", "/help")),
+    )
+
+
+def _main_menu_reply() -> tuple[tuple[str, ...], ...]:
+    return (
+        ("📊 Статус", "📍 Позиции", "🏠 Меню"),
+        ("⏱ Таймфрейм", "🛡 Риск", "🤖 Режим"),
+        ("🧪 Backtest", "🧠 ML отчет", "📰 News"),
+        ("🧭 Readiness", "🙈 Скрыть меню"),
     )
 
 
