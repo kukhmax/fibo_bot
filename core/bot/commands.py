@@ -37,10 +37,10 @@ def build_default_router(
         profile = store.get_or_create(ctx.user_id, config)
         if args.strip():
             if not _access_write_allowed(config):
-                return {"text": "🔒 Сейчас только режим уведомлений, менять настройки нельзя.", "inline_keyboard": _main_menu_inline()}
+                return {"text": "🔒 Сейчас только режим уведомлений, менять настройки нельзя."}
             updated, errors = _apply_start_updates(profile, args)
             if errors:
-                return {"text": _format_profile_error(profile, errors), "inline_keyboard": _main_menu_inline()}
+                return {"text": _format_profile_error(profile, errors)}
             store.save(updated)
             profile = updated
         text = (
@@ -58,7 +58,7 @@ def build_default_router(
             f"🔔 Отчёт каждые: {profile.position_report_minutes} мин\n\n"
             "Выбери действие кнопками ниже 👇"
         )
-        return {"text": text, "inline_keyboard": _main_menu_inline()}
+        return {"text": text}
 
     def help_handler(_: CommandContext, __: str) -> str:
         return (
@@ -362,9 +362,9 @@ def build_default_router(
         return {
             "text": (
                 "🏠 Главное меню\n"
-                "Выбери раздел. Все кнопки безопасны: они только меняют настройки профиля."
+                "Выбери раздел кнопками под строкой ввода.\n"
+                "Все кнопки безопасны: они только меняют настройки профиля."
             ),
-            "inline_keyboard": _main_menu_inline(),
         }
 
     def tf_menu_handler(ctx: CommandContext, __: str) -> dict:
@@ -535,16 +535,6 @@ def _apply_start_updates(
             position_report_minutes=report_value,
         ),
         [],
-    )
-
-
-def _main_menu_inline() -> tuple[tuple[tuple[str, str], ...], ...]:
-    return (
-        (("📊 Статус", "/status"), ("📍 Позиции", "/positions")),
-        (("⏱ Таймфрейм", "/tf_menu"), ("🛡 Риск и RR", "/risk")),
-        (("🤖 Режим", "/mode_menu"), ("🧪 Mini-backtest", "/backtest")),
-        (("🧠 ML отчет", "/ml_report"), ("📰 News", "/news")),
-        (("🧭 Live readiness", "/readiness"), ("❓ Помощь", "/help")),
     )
 
 

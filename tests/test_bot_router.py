@@ -75,7 +75,7 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Добро пожаловать", start.response_text)
         self.assertIn("Текущий статус", status.response_text)
         self.assertIn("Режим", status.response_text)
-        self.assertIsNotNone(start.inline_keyboard)
+        self.assertIsNotNone(start.reply_keyboard)
 
     async def test_start_updates_master_profile(self) -> None:
         config = load_environment_config("dev")
@@ -199,9 +199,9 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/menu"))
         self.assertTrue(result.handled)
         self.assertIn("Главное меню", result.response_text)
-        self.assertIsNotNone(result.inline_keyboard)
-        assert result.inline_keyboard is not None
-        labels = [title for row in result.inline_keyboard for (title, _callback) in row]
+        self.assertIsNotNone(result.reply_keyboard)
+        assert result.reply_keyboard is not None
+        labels = [title for row in result.reply_keyboard for title in row]
         self.assertTrue(any("⏱" in item for item in labels))
         self.assertTrue(any("🛡" in item for item in labels))
 
