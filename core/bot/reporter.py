@@ -39,14 +39,26 @@ class MlQualityReporter:
         now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
         artifact = self.artifact_store.load()
         if artifact is None:
-            return "ML отчет\nartifact=not_found\nЗапусти обучение модели (/ml_train в следующих этапах)\n" f"ts={now}"
+            return (
+                "🧠 **ML отчет**\n"
+                "━━━━━━━━━━━━━━━━\n"
+                "⚠️ Модель не найдена.\n"
+                "Система использует базовую стратегию без ML-фильтрации.\n\n"
+                "👇 Нажми **«🚀 Обучить модель»**, чтобы запустить процесс обучения.\n"
+                f"🕒 {now}"
+            )
         return (
-            "ML отчет\n"
-            f"train_accuracy={artifact.train_accuracy:.4f}\n"
-            f"validation_accuracy={artifact.validation_accuracy:.4f}\n"
-            f"train_size={artifact.train_size} validation_size={artifact.validation_size}\n"
-            f"features={','.join(artifact.feature_names)}\n"
-            f"ts={now}"
+            "🧠 **ML отчет**\n"
+            "━━━━━━━━━━━━━━━━\n"
+            f"🎯 **Точность (Accuracy)**\n"
+            f"Train: {artifact.train_accuracy:.2%}\n"
+            f"Validation: {artifact.validation_accuracy:.2%}\n\n"
+            f"📊 **Данные**\n"
+            f"Train samples: {artifact.train_size}\n"
+            f"Validation samples: {artifact.validation_size}\n\n"
+            f"🎛 **Признаки (Features)**\n"
+            f"{', '.join(artifact.feature_names)}\n\n"
+            f"🕒 {now}"
         )
 
 

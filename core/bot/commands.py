@@ -20,6 +20,11 @@ from core.data.persistence import StateCache
 from core.risk import RiskManager
 
 
+from core.ml.dataset_builder import MlTrainDatasetBuilder
+from core.ml.history_pipeline import HistoricalTrainingDataPipeline
+from core.ml.training_pipeline import MlTrainingPipeline
+
+
 RISK_MANAGER = RiskManager()
 BACKTEST_SYMBOLS: tuple[str, ...] = ("BTCUSDT", "ETHUSDT", "SOLUSDT")
 BACKTEST_TIMEFRAMES: tuple[str, ...] = ("1m", "5m", "15m", "1h")
@@ -382,8 +387,42 @@ def build_default_router(
         inline = ((( "Обновить", "/positions"),),)
         return {"text": text, "inline_keyboard": inline}
 
-    def ml_report_handler(_: CommandContext, __: str) -> str:
-        return ml_reporter.build_report()
+    def ml_report_handler(_: CommandContext, __: str) -> dict:
+        text = ml_reporter.build_report()
+        # Always offer training button
+        inline = ((("🚀 Обучить модель", "/ml_train"),),)
+        return {"text": text, "inline_keyboard": inline}
+
+    def ml_train_handler(ctx: CommandContext, __: str) -> str:
+        if not _access_write_allowed(config):
+            return "Режим доступа notify_only: обучение недоступно."
+        
+        # For MVP, we train on a default pair to get a general model
+        symbol = "BTCUSDT"
+        timeframe = "5m"
+        
+        pipeline = MlTrainingPipeline(
+            dataset_builder=MlTrainDatasetBuilder(
+                history_pipeline=HistoricalTrainingDataPipeline(
+                    symbol=symbol, 
+                    timeframe=timeframe,
+                    min_candles=3000
+                )
+            ),
+            artifact_store=ml_artifact_store
+        )
+        
+        try:
+            artifact = pipeline.run(candle_limit=3000, epochs=50)
+            return (
+                f"✅ **Обучение завершено!**\n"
+                f"Модель сохранена.\n\n"
+                f"🎯 Accuracy: {artifact.validation_accuracy:.2%}\n"
+                f"📊 Samples: {artifact.train_size + artifact.validation_size}\n"
+                f"Параметры: {symbol} {timeframe}"
+            )
+        except Exception as e:
+            return f"❌ Ошибка обучения: {str(e)}"
 
     def risk_menu_handler(ctx: CommandContext, __: str) -> dict:
         profile = store.get_or_create(ctx.user_id, config)
@@ -580,6 +619,7 @@ def build_default_router(
     router.add_route("/mode_menu", mode_menu_handler)
     router.add_route("/positions", positions_handler)
     router.add_route("/ml_report", ml_report_handler)
+    router.add_route("/ml_train", ml_train_handler)
     router.add_route("/news", news_handler)
     router.add_route("/readiness", readiness_handler)
     router.add_route("/risk", risk_menu_handler)

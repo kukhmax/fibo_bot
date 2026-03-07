@@ -443,7 +443,8 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         result = await router.dispatch(CommandContext(chat_id=1, user_id=2, text="/ml_report"))
         self.assertTrue(result.handled)
         self.assertIn("ML отчет", result.response_text)
-        self.assertIn("artifact=not_found", result.response_text)
+        self.assertIn("Модель не найдена", result.response_text)
+        self.assertIsNotNone(result.inline_keyboard)
 
     async def test_ml_report_returns_metrics_when_artifact_exists(self) -> None:
         config = load_environment_config("dev")
@@ -463,8 +464,32 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         router = build_default_router(config, profile_store=self._store, ml_artifact_store=store)
         result = await router.dispatch(CommandContext(chat_id=1, user_id=2, text="/ml_report"))
         self.assertTrue(result.handled)
-        self.assertIn("train_accuracy=0.7500", result.response_text)
-        self.assertIn("validation_accuracy=0.6600", result.response_text)
+        self.assertIn("Train: 75.00%", result.response_text)
+        self.assertIn("Validation: 66.00%", result.response_text)
+        self.assertIsNotNone(result.inline_keyboard)
+
+    @patch("core.bot.commands.MlTrainingPipeline.run")
+    @patch("core.bot.commands.MlTrainDatasetBuilder")
+    @patch("core.bot.commands.HistoricalTrainingDataPipeline")
+    async def test_ml_train_runs_pipeline_and_returns_success(self, _mock_hist, _mock_ds, mock_run) -> None:
+        from core.ml.artifacts import BaselineModelArtifact
+        config = load_environment_config("dev")
+        
+        # Mock successful training
+        mock_artifact = BaselineModelArtifact(
+            feature_names=("f1",), weights=(1.0,), bias=0.0,
+            train_accuracy=0.8, validation_accuracy=0.7,
+            train_size=100, validation_size=20
+        )
+        mock_run.return_value = mock_artifact
+        
+        router = build_default_router(config, profile_store=self._store)
+        result = await router.dispatch(CommandContext(chat_id=1, user_id=2, text="/ml_train"))
+        
+        self.assertTrue(result.handled)
+        self.assertIn("Обучение завершено", result.response_text)
+        self.assertIn("Accuracy: 70.00%", result.response_text)
+        mock_run.assert_called_once()
 
 
 if __name__ == "__main__":
