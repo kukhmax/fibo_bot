@@ -320,6 +320,14 @@ def build_default_router(
             if errors:
                 return "Неверный формат. Введи так: BTCUSDT 5m"
             return pair_add_handler(ctx, f"{symbol} {timeframe}")
+        elif action == "await_backtest":
+            # The backtest command expects "symbol=... timeframe=..."
+            # But the user will type "BTCUSDT 5m" or just "BTCUSDT"
+            # We need to parse this and convert it to "symbol=... timeframe=..."
+            symbol, timeframe, errors = _parse_pair_args(args)
+            if errors:
+                return "Неверный формат. Введи так: BTCUSDT 5m"
+            return backtest_handler(ctx, f"symbol={symbol} timeframe={timeframe}")
         
         return "Команда не распознана."
 
@@ -495,7 +503,7 @@ def build_default_router(
         )
         return {"text": text, "reply_keyboard": _mode_menu_reply()}
 
-    def backtest_handler(_: CommandContext, args: str) -> dict:
+    def backtest_handler(ctx: CommandContext, args: str) -> dict:
         symbol = ""
         timeframe = ""
         for token in args.split():
@@ -508,30 +516,35 @@ def build_default_router(
                 symbol = normalized_value
             elif normalized_key in {"tf", "timeframe"}:
                 timeframe = normalized_value
+        
         if not symbol or not timeframe:
+            _set_flow(ctx.user_id, "await_backtest")
             text = (
-                "Mini-backtest\n"
-                "Шаг 1/4: выбери актив и таймфрейм.\n"
-                "Использование: /backtest symbol=<BTCUSDT|ETHUSDT|SOLUSDT> timeframe=<1m|5m|15m|1h>"
+                "🧪 **Mini-Backtest**\n"
+                "━━━━━━━━━━━━━━━━\n"
+                "Быстрая проверка стратегии на истории.\n"
+                "Бот загрузит свечи, прогонит ML-модель и покажет результат.\n\n"
+                "👇 **Выбери пару из списка или напиши свою**\n"
+                "Формат: `SYMBOL TIMEFRAME`\n"
+                "Пример: `DOGEUSDT 15m`"
             )
-            inline = (
-                (("BTC 5m", "/backtest symbol=BTCUSDT timeframe=5m"), ("ETH 5m", "/backtest symbol=ETHUSDT timeframe=5m")),
-                (("SOL 5m", "/backtest symbol=SOLUSDT timeframe=5m"), ("BTC 1h", "/backtest symbol=BTCUSDT timeframe=1h")),
-                (("ETH 15m", "/backtest symbol=ETHUSDT timeframe=15m"), ("SOL 1m", "/backtest symbol=SOLUSDT timeframe=1m")),
-            )
-            return {"text": text, "inline_keyboard": inline}
+            return {"text": text, "reply_keyboard": _backtest_menu_reply()}
+
         errors: list[str] = []
-        if symbol not in BACKTEST_SYMBOLS:
-            errors.append("symbol должен быть BTCUSDT|ETHUSDT|SOLUSDT")
         if timeframe not in BACKTEST_TIMEFRAMES:
             errors.append("timeframe должен быть 1m|5m|15m|1h")
         if errors:
-            text = "Ошибка mini-backtest: " + "; ".join(errors)
-            return {"text": text, "inline_keyboard": None}
+            return {"text": "Ошибка: " + "; ".join(errors)}
+
         local_candles = load_local_backtest_candles(symbol=symbol, timeframe=timeframe, limit=3000)
         candles = load_backtest_candles(symbol=symbol, timeframe=timeframe, limit=3000)
+        
+        if not candles:
+            return {"text": f"❌ Не удалось загрузить данные для {symbol} {timeframe}"}
+
         backtest_report = run_mini_backtest(candles=candles, ml_filter=MlSignalFilter())
         fetch_status = "ok" if len(candles) >= 3000 else "partial"
+        
         text = MiniBacktestReporter().build_report(
             symbol=symbol,
             timeframe=timeframe,
@@ -540,8 +553,9 @@ def build_default_router(
             remote_fetch=fetch_status,
             report=backtest_report,
         )
-        inline = ((( "Изменить выбор", "/backtest"),),)
-        return {"text": text, "inline_keyboard": inline}
+        # Clear flow after successful backtest
+        _clear_flow(ctx.user_id)
+        return {"text": text, "reply_keyboard": _backtest_menu_reply()}
 
     router.add_route("/start", start_handler)
     router.add_route("/help", help_handler)
@@ -681,6 +695,14 @@ def _pairs_menu_reply() -> tuple[tuple[str, ...], ...]:
     )
 
 
+def _backtest_menu_reply() -> tuple[tuple[str, ...], ...]:
+    return (
+        ("BTCUSDT 5m", "ETHUSDT 5m", "SOLUSDT 5m"),
+        ("BTCUSDT 1h", "ETHUSDT 1h", "SOLUSDT 1h"),
+        ("🏠 Меню",),
+    )
+
+
 def _is_secret_configured(value: str) -> bool:
     normalized = value.strip()
     if not normalized:
@@ -715,11 +737,10 @@ def _parse_pair_args(args: str) -> tuple[str, str, list[str]]:
     if len(tokens) >= 2:
         timeframe = tokens[1].strip().lower()
     if not symbol:
-        errors.append("symbol обязателен, пример: /pair_add BTCUSDT 5m")
-    elif symbol not in BACKTEST_SYMBOLS:
-        errors.append("symbol должен быть BTCUSDT|ETHUSDT|SOLUSDT")
+        errors.append("symbol обязателен, пример: BTCUSDT 5m")
+    # Removed strict check against BACKTEST_SYMBOLS to allow any pair
     if not timeframe:
-        errors.append("timeframe обязателен, пример: /pair_add BTCUSDT 5m")
+        errors.append("timeframe обязателен, пример: BTCUSDT 5m")
     elif timeframe not in {"1m", "5m", "15m", "1h", "4h"}:
         errors.append("timeframe должен быть 1m|5m|15m|1h|4h")
     return symbol, timeframe, errors

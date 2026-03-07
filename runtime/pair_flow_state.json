@@ -1,1 +1,1 @@
-{"pair_flow:42": {}, "flow:42": {}, "flow:77": {"action": "await_risk"}}
+{"pair_flow:42": {}, "flow:42": {"action": "await_dd"}, "flow:77": {"action": "await_risk"}}

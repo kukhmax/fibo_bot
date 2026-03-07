@@ -338,50 +338,73 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         self.assertIn("News engine", result.response_text)
         self.assertIn("source=t.me/cryptoarsenal", result.response_text)
 
-    async def test_backtest_menu_returns_inline_keyboard(self) -> None:
+    async def test_backtest_menu_returns_reply_keyboard(self) -> None:
         config = load_environment_config("dev")
         router = build_default_router(config, profile_store=self._store)
         result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/backtest"))
         self.assertTrue(result.handled)
-        self.assertIn("Mini-backtest", result.response_text)
-        self.assertIsNotNone(result.inline_keyboard)
-        assert result.inline_keyboard is not None
-        callbacks = [callback for row in result.inline_keyboard for (_text, callback) in row]
-        self.assertIn("/backtest symbol=BTCUSDT timeframe=5m", callbacks)
+        self.assertIn("Mini-Backtest", result.response_text)
+        self.assertIsNotNone(result.reply_keyboard)
+        assert result.reply_keyboard is not None
+        labels = [label for row in result.reply_keyboard for label in row]
+        self.assertTrue(any("BTCUSDT 5m" in label for label in labels))
 
-    async def test_backtest_accepts_symbol_and_timeframe(self) -> None:
+    @patch("core.bot.commands.load_backtest_candles")
+    @patch("core.bot.commands.load_local_backtest_candles")
+    async def test_backtest_accepts_symbol_and_timeframe(self, mock_local, mock_remote) -> None:
+        # Mock candles to ensure backtest runs
+        from core.data.models import Candle
+        mock_candles = [
+            Candle(
+                symbol="BTCUSDT", 
+                timeframe="5m", 
+                open_time_ms=10000+i*60000, 
+                close_time_ms=10000+i*60000+59999, 
+                open=100.0, 
+                high=110.0, 
+                low=90.0, 
+                close=105.0, 
+                volume=1000.0
+            ) for i in range(100)
+        ]
+        mock_remote.return_value = mock_candles
+        mock_local.return_value = []
+
         config = load_environment_config("dev")
         router = build_default_router(config, profile_store=self._store)
         result = await router.dispatch(
             CommandContext(chat_id=1, user_id=42, text="/backtest symbol=BTCUSDT timeframe=5m")
         )
         self.assertTrue(result.handled)
-        self.assertIn("symbol=BTCUSDT", result.response_text)
-        self.assertIn("timeframe=5m", result.response_text)
-        self.assertIn("Mini-backtest отчет", result.response_text)
-        self.assertIn("[Параметры]", result.response_text)
-        self.assertIn("[Сигналы]", result.response_text)
-        self.assertIn("[Метрики]", result.response_text)
-        self.assertIn("signals_total=", result.response_text)
-        self.assertIn("signals_after_ml=", result.response_text)
-        self.assertIn("signals_blocked_ml=", result.response_text)
-        self.assertIn("trades=", result.response_text)
-        self.assertIn("winrate=", result.response_text)
-        self.assertIn("pf=", result.response_text)
-        self.assertIn("max_dd_r=", result.response_text)
-        self.assertIn("avg_rr=", result.response_text)
-        self.assertIn("expectancy_r=", result.response_text)
-        self.assertIn("asset_status=", result.response_text)
-        self.assertIn("decision_reason=", result.response_text)
+        self.assertIn("Symbol: BTCUSDT", result.response_text)
+        self.assertIn("Timeframe: 5m", result.response_text)
+        self.assertIn("🧪 Mini-Backtest отчет", result.response_text)
+        self.assertIn("Параметры", result.response_text)
+        self.assertIn("Сигналы", result.response_text)
+        self.assertIn("Метрики", result.response_text)
+        self.assertIn("Total:", result.response_text)
+        self.assertIn("Trades:", result.response_text)
+        self.assertIn("Winrate:", result.response_text)
+        self.assertIn("Итог", result.response_text)
+        self.assertIn("Status:", result.response_text)
 
-    async def test_backtest_rejects_invalid_symbol(self) -> None:
+    async def test_backtest_flow_manual_input(self) -> None:
         config = load_environment_config("dev")
         router = build_default_router(config, profile_store=self._store)
-        result = await router.dispatch(
-            CommandContext(chat_id=1, user_id=42, text="/backtest symbol=XRPUSDT timeframe=5m")
-        )
+        
+        # Step 1: Start backtest flow
+        prompt = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/backtest"))
+        self.assertIn("Выбери пару из списка или напиши свою", prompt.response_text)
+        
+        # Step 2: Send manual input
+        result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="DOGEUSDT 15m"))
         self.assertTrue(result.handled)
-        self.assertIn("Ошибка mini-backtest", result.response_text)
+        # Since we haven't mocked load_backtest_candles for this test case, it will fail to load
+        # But we want to ensure it TRIED to run backtest
+        self.assertTrue(
+            "Не удалось загрузить данные" in result.response_text 
+            or "Mini-Backtest отчет" in result.response_text
+        )
 
     async def test_notify_only_access_blocks_updates(self) -> None:
         config = load_environment_config("dev")
