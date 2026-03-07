@@ -311,13 +311,10 @@ def build_default_router(
             return set_dd_handler(ctx, args)
         elif action == "await_maxpos":
             return set_maxpos_handler(ctx, args)
-        elif action == "await_sltp":
-            normalized = args.strip().upper()
-            if normalized.startswith("SL"):
-                return set_sl_handler(ctx, normalized[2:].strip())
-            if normalized.startswith("TP"):
-                return set_tp_handler(ctx, normalized[2:].strip())
-            return "Укажи тип: 'SL 0.5' или 'TP 1.0'"
+        elif action == "await_sl":
+            return set_sl_handler(ctx, args)
+        elif action == "await_tp":
+            return set_tp_handler(ctx, args)
         elif action == "await_pair_add":
             symbol, timeframe, errors = _parse_pair_args(args)
             if errors:
@@ -400,12 +397,9 @@ def build_default_router(
         text = (
             "🛡 Настройка Risk на сделку\n"
             f"Сейчас: {profile.risk_per_trade_pct}%\n"
-            "Рекомендация: 0.5% - 1.0% для спокойного режима."
+            "Введи число (например: 0.5 или 1.0):"
         )
-        reply = (
-            ("🛡 Risk 0.5%", "🛡 Risk 1.0%", "🛡 Risk 1.5%"),
-            ("⬅️ Назад", "🏠 Меню"),
-        )
+        reply = (("⬅️ Назад", "🏠 Меню"),)
         return {"text": text, "reply_keyboard": reply}
 
     def risk_rr_handler(ctx: CommandContext, __: str) -> dict:
@@ -414,12 +408,9 @@ def build_default_router(
         text = (
             "🎯 Настройка Risk/Reward\n"
             f"Сейчас: {profile.rr_ratio}\n"
-            "Чем выше RR, тем реже исполнение, но выше цель."
+            "Введи число (например: 2.0 или 2.5):"
         )
-        reply = (
-            ("🎯 RR 1.5", "🎯 RR 2.0", "🎯 RR 2.5"),
-            ("⬅️ Назад", "🏠 Меню"),
-        )
+        reply = (("⬅️ Назад", "🏠 Меню"),)
         return {"text": text, "reply_keyboard": reply}
 
     def risk_dd_handler(ctx: CommandContext, __: str) -> dict:
@@ -428,36 +419,37 @@ def build_default_router(
         text = (
             "🚫 Настройка дневной просадки (DD)\n"
             f"Сейчас: {profile.max_daily_drawdown_pct}%\n"
-            "При превышении лимита новые входы блокируются до следующего UTC-дня."
+            "Введи число (например: 5 или 10):"
         )
-        reply = (
-            ("🚫 DD 5%", "🚫 DD 8%", "🚫 DD 10%"),
-            ("⬅️ Назад", "🏠 Меню"),
-        )
+        reply = (("⬅️ Назад", "🏠 Меню"),)
         return {"text": text, "reply_keyboard": reply}
 
     def risk_limits_handler(ctx: CommandContext, __: str) -> dict:
         _set_flow(ctx.user_id, "await_maxpos")
-        text = "📦 Лимит открытых позиций"
-        reply = (
-            ("📦 MaxPos 1", "📦 MaxPos 2", "📦 MaxPos 3"),
-            ("⬅️ Назад", "🏠 Меню"),
-        )
+        text = "📦 Введи лимит открытых позиций (например: 1 или 3):"
+        reply = (("⬅️ Назад", "🏠 Меню"),)
         return {"text": text, "reply_keyboard": reply}
 
-    def risk_sl_tp_handler(ctx: CommandContext, __: str) -> dict:
-        _set_flow(ctx.user_id, "await_sltp")
+    def risk_sl_handler(ctx: CommandContext, __: str) -> dict:
+        _set_flow(ctx.user_id, "await_sl")
         profile = store.get_or_create(ctx.user_id, config)
         text = (
-            "🧯 Настройка SL/TP\n"
-            f"Сейчас SL: {profile.sl_pct}%\n"
-            f"Сейчас TP: {profile.tp_pct}%"
+            "🧯 Настройка Stop Loss\n"
+            f"Сейчас: {profile.sl_pct}%\n"
+            "Введи число (например: 0.5):"
         )
-        reply = (
-            ("🧯 SL 0.5%", "🧯 SL 1.0%"),
-            ("💰 TP 1.0%", "💰 TP 2.0%"),
-            ("⬅️ Назад", "🏠 Меню"),
+        reply = (("⬅️ Назад", "🏠 Меню"),)
+        return {"text": text, "reply_keyboard": reply}
+
+    def risk_tp_handler(ctx: CommandContext, __: str) -> dict:
+        _set_flow(ctx.user_id, "await_tp")
+        profile = store.get_or_create(ctx.user_id, config)
+        text = (
+            "💰 Настройка Take Profit\n"
+            f"Сейчас: {profile.tp_pct}%\n"
+            "Введи число (например: 1.0):"
         )
+        reply = (("⬅️ Назад", "🏠 Меню"),)
         return {"text": text, "reply_keyboard": reply}
 
     def menu_handler(ctx: CommandContext, __: str) -> dict:
@@ -580,7 +572,8 @@ def build_default_router(
     router.add_route("/risk_rr", risk_rr_handler)
     router.add_route("/risk_dd", risk_dd_handler)
     router.add_route("/risk_limits", risk_limits_handler)
-    router.add_route("/risk_sl_tp", risk_sl_tp_handler)
+    router.add_route("/risk_sl", risk_sl_handler)
+    router.add_route("/risk_tp", risk_tp_handler)
     router.add_route("/backtest", backtest_handler)
     return router
 
@@ -661,8 +654,8 @@ def _risk_menu_reply() -> tuple[tuple[str, ...], ...]:
     return (
         ("🛡 Настроить Risk", "🎯 Настроить RR"),
         ("🚫 Настроить DD", "📦 Лимит позиций"),
-        ("🧯 SL/TP", "❌ Закрыть позицию"),
-        ("🔄 Обновить", "🏠 Меню"),
+        ("🧯 SL", "💰 TP"),
+        ("❌ Закрыть позицию", "🏠 Меню"),
     )
 
 

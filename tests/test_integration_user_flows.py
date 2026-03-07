@@ -71,9 +71,9 @@ class TestIntegrationUserFlows(unittest.IsolatedAsyncioTestCase):
             updates = [
                 IncomingMessage(update_id=11, chat_id=101, user_id=77, text="/mode_menu"),
                 IncomingMessage(update_id=12, chat_id=101, user_id=77, text="/mode paper"),
-                IncomingMessage(update_id=13, chat_id=101, user_id=77, text="/risk"),
-                IncomingMessage(update_id=14, chat_id=101, user_id=77, text="/set_risk 1.0"),
-                IncomingMessage(update_id=15, chat_id=101, user_id=77, text="/set_rr 2.5"),
+                IncomingMessage(update_id=13, chat_id=101, user_id=77, text="/risk_risk"),  # Enter risk menu
+                IncomingMessage(update_id=14, chat_id=101, user_id=77, text="1.0"),          # Send value manually
+                IncomingMessage(update_id=15, chat_id=101, user_id=77, text="/set_rr 2.5"),  # Direct command still works
                 IncomingMessage(update_id=16, chat_id=101, user_id=77, text="/status"),
             ]
             transport = _FlowTransport(updates=updates)
@@ -84,7 +84,7 @@ class TestIntegrationUserFlows(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(processed, 6)
             self.assertIn("Выбор режима", transport.sent_messages[0][1])
             self.assertIn("Режим обновлен: paper", transport.sent_messages[1][1])
-            self.assertIn("Меню риска", transport.sent_messages[2][1])
+            self.assertIn("Настройка Risk", transport.sent_messages[2][1])
             self.assertIn("Риск на сделку обновлен: 1.0%", transport.sent_messages[3][1])
             self.assertIn("Risk/Reward обновлен: 2.5", transport.sent_messages[4][1])
             self.assertIn("Режим: paper", transport.sent_messages[5][1])

@@ -268,12 +268,14 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         rr_values = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/risk_rr"))
         dd_values = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/risk_dd"))
         self.assertIn("Настройка Risk", risk_values.response_text)
+        self.assertIn("Введи число", risk_values.response_text)
         self.assertIn("Настройка Risk/Reward", rr_values.response_text)
+        self.assertIn("Введи число", rr_values.response_text)
         self.assertIn("Настройка дневной просадки", dd_values.response_text)
         
         assert risk_values.reply_keyboard is not None
         risk_labels = [label for row in risk_values.reply_keyboard for label in row]
-        self.assertTrue(any("Risk 1.0%" in label for label in risk_labels))
+        self.assertFalse(any("Risk 1.0%" in label for label in risk_labels))
         self.assertTrue(any("Назад" in label for label in risk_labels))
 
     async def test_readiness_reports_missing_secrets(self) -> None:
