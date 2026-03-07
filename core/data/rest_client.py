@@ -1,4 +1,5 @@
 import json
+import time
 from urllib import request
 
 from core.data.models import Candle
@@ -9,14 +10,21 @@ class HyperliquidRestClient:
         self.base_url = base_url.rstrip("/")
 
     def fetch_candles(self, symbol: str, timeframe: str, limit: int = 200) -> list[Candle]:
+        # Normalize symbol: remove USDT suffix if present (Hyperliquid uses ETH, BTC, SOL)
+        coin = symbol.replace("USDT", "") if symbol.endswith("USDT") else symbol
+        
+        # Calculate time range
+        now_ms = int(time.time() * 1000)
+        tf_ms = _tf_to_ms(timeframe)
+        start_time = now_ms - (limit * tf_ms)
+        
         payload = {
             "type": "candleSnapshot",
             "req": {
-                "coin": symbol,
+                "coin": coin,
                 "interval": timeframe,
-                "startTime": 0,
-                "endTime": 0,
-                "limit": limit,
+                "startTime": start_time,
+                "endTime": now_ms,
             },
         }
         req = request.Request(
@@ -34,13 +42,38 @@ class MexcRestClient:
         self.base_url = base_url.rstrip("/")
 
     def fetch_candles(self, symbol: str, timeframe: str, limit: int = 200) -> list[Candle]:
+        # Normalize symbol: ensure _USDT suffix (Mexc uses ETH_USDT)
+        mexc_symbol = symbol
+        if "USDT" in symbol and "_" not in symbol:
+             mexc_symbol = symbol.replace("USDT", "_USDT")
+            
+        # Mexc timeframe mapping
+        interval_map = {"1m": "Min1", "5m": "Min5", "15m": "Min15", "30m": "Min30", "1h": "Min60", "4h": "Min240"}
+        mexc_interval = interval_map.get(timeframe, "Min60")
+
         query = (
-            f"{self.base_url}/api/v1/contract/kline/{symbol}"
-            f"?interval={timeframe}&limit={limit}"
+            f"{self.base_url}/api/v1/contract/kline/{mexc_symbol}"
+            f"?interval={mexc_interval}&limit={limit}"
         )
         req = request.Request(query, method="GET")
         raw = _fetch_json(req)
         source = raw["data"] if isinstance(raw, dict) and "data" in raw else raw
+        
+        # Handle Mexc column-oriented data (dict of lists)
+        if isinstance(source, dict) and "time" in source and isinstance(source["time"], list):
+            count = len(source["time"])
+            converted = []
+            for i in range(count):
+                converted.append({
+                    "time": source["time"][i],
+                    "open": source["open"][i],
+                    "high": source["high"][i],
+                    "low": source["low"][i],
+                    "close": source["close"][i],
+                    "vol": source["vol"][i],
+                })
+            source = converted
+            
         return _normalize_candles(source, symbol, timeframe)
 
 
@@ -56,9 +89,24 @@ class MultiExchangeHistoricalData:
             candles = self.primary_client.fetch_candles(symbol=symbol, timeframe=timeframe, limit=limit)
             if candles:
                 return candles
-        except Exception:
-            pass
-        return self.backup_client.fetch_candles(symbol=symbol, timeframe=timeframe, limit=limit)
+        except Exception as e:
+            print(f"Primary source failed for {symbol}: {e}")
+        
+        try:
+            return self.backup_client.fetch_candles(symbol=symbol, timeframe=timeframe, limit=limit)
+        except Exception as e:
+            print(f"Backup source failed for {symbol}: {e}")
+            return []
+
+
+def _tf_to_ms(tf: str) -> int:
+    if tf.endswith("m"):
+        return int(tf[:-1]) * 60_000
+    if tf.endswith("h"):
+        return int(tf[:-1]) * 3_600_000
+    if tf.endswith("d"):
+        return int(tf[:-1]) * 86_400_000
+    return 60_000
 
 
 def _fetch_json(req: request.Request):
@@ -90,17 +138,28 @@ def _item_to_candle(item, symbol: str, timeframe: str) -> Candle | None:
     high_price = _pick(item, "h", "high")
     low_price = _pick(item, "l", "low")
     close_price = _pick(item, "c", "close")
-    volume = _pick(item, "v", "volume")
+    volume = _pick(item, "v", "volume", "vol")
+
     if open_time is None or open_price is None or high_price is None or low_price is None or close_price is None:
         return None
+    
+    open_time = int(open_time)
+    # Heuristic: if timestamp is small (seconds), convert to ms
+    if open_time < 10_000_000_000:
+        open_time *= 1000
+
     if close_time is None:
-        close_time = int(open_time)
+        close_time = open_time + _tf_to_ms(timeframe) - 1
+    else:
+        close_time = int(close_time)
+        if close_time < 10_000_000_000:
+            close_time *= 1000
 
     return Candle(
         symbol=symbol,
         timeframe=timeframe,
-        open_time_ms=int(open_time),
-        close_time_ms=int(close_time),
+        open_time_ms=open_time,
+        close_time_ms=close_time,
         open=float(open_price),
         high=float(high_price),
         low=float(low_price),

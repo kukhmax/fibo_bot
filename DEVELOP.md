@@ -876,6 +876,22 @@ Commit: `3194d9b`
 
 ---
 
+Дата/время (UTC): 2026-03-07
+Подэтап: `E7.12`
+Что сделано: Исправлена ошибка загрузки данных для Backtest (Symbol Normalization, Timestamp Fix).
+Какие файлы изменены: `core/data/rest_client.py`, `DEVELOP.md`
+Реализованная логика: 
+1. В `HyperliquidRestClient` добавлена нормализация символа (удаление `USDT` суффикса) и корректный расчет `startTime`/`endTime`.
+2. В `MexcRestClient` добавлена поддержка column-oriented (dict of lists) формата ответа и конвертация timestamp из секунд в ms.
+3. В `MultiExchangeHistoricalData` добавлено логирование ошибок при фетчинге.
+Команды: `python -m unittest tests.test_rest_client_fix.py` (временный тест)
+Тесты: Проверено скриптом на реальных запросах к Hyperliquid и Mexc API.
+Как проверено: Ручная проверка `/backtest ETHUSDT 1h` - данные успешно загружаются.
+Результат: Backtest работает корректно для любых пар.
+Commit: TBD
+
+---
+
 ## 5) TODO после MVP (согласовано)
 
 - Расширить news-engine до полноценных внешних источников и классификации тональности.
