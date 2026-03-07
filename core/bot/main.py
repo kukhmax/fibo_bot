@@ -34,6 +34,7 @@ def run(once: bool = False, print_commands: bool = False) -> None:
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
+        force=True,
     )
     app_env = os.getenv("APP_ENV", "dev")
     config = load_environment_config(app_env)
