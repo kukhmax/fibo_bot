@@ -2,6 +2,7 @@ import asyncio
 from dataclasses import dataclass
 import inspect
 import json
+import logging
 import random
 import time
 from typing import Awaitable
@@ -12,6 +13,9 @@ from core.data.candle_builder import TIMEFRAME_TO_MS
 from core.data.models import Candle
 from core.data.models import Tick
 from core.data.rest_client import MultiExchangeHistoricalData
+
+
+logger = logging.getLogger(__name__)
 
 
 class WsConnectionProtocol(Protocol):
@@ -133,7 +137,9 @@ class HyperliquidWsClient:
         reconnect_attempt = 0
         while not self._stop_requested:
             try:
+                logger.info(f"ws_connecting url={self.ws_url} attempt={reconnect_attempt}")
                 connection = await self.connector(self.ws_url)
+                logger.info(f"ws_connected url={self.ws_url}")
                 needs_backfill = reconnect_attempt > 0
                 reconnect_attempt = 0
                 if needs_backfill:
@@ -145,9 +151,10 @@ class HyperliquidWsClient:
                     return total_processed
                 if not self._stop_requested:
                     raise ConnectionError("websocket stream closed")
-            except Exception:
+            except Exception as exc:
                 if self._stop_requested:
                     break
+                logger.warning(f"ws_error url={self.ws_url} error={exc}")
                 reconnect_attempt += 1
                 if (
                     self.reconnect_policy.max_attempts is not None
@@ -164,12 +171,14 @@ class HyperliquidWsClient:
         processed = 0
         try:
             await self._send_subscriptions(connection)
+            logger.info(f"ws_subscribed symbol={self.symbol} timeframe={self.timeframe}")
             while not self._stop_requested:
                 if remaining_limit is not None and processed >= remaining_limit:
                     return processed
                 try:
                     raw_message = await asyncio.wait_for(connection.recv(), timeout=self.heartbeat_timeout_sec)
                 except Exception:
+                    logger.warning(f"ws_heartbeat_timeout symbol={self.symbol}")
                     return processed
                 tick = self.parser.parse_tick(raw_message, symbol=self.symbol)
                 if tick is None:
@@ -178,6 +187,7 @@ class HyperliquidWsClient:
                 await self._emit_tick(tick)
                 processed += 1
         finally:
+            logger.info(f"ws_closed symbol={self.symbol} processed={processed}")
             try:
                 await connection.close()
             except Exception:
@@ -216,11 +226,13 @@ class HyperliquidWsClient:
         limit = self._estimate_backfill_limit()
         if limit <= 0:
             return
+        logger.info(f"ws_backfill_start symbol={self.symbol} limit={limit} last_tick={self._last_tick_timestamp_ms}")
         candles = self.rest_data.fetch_with_fallback(symbol=self.symbol, timeframe=self.timeframe, limit=limit)
         filtered = [candle for candle in candles if candle.open_time_ms > self._last_tick_timestamp_ms]
         if not filtered:
             return
         await self._emit_backfill(filtered)
+        logger.info(f"ws_backfill_complete symbol={self.symbol} count={len(filtered)}")
         self._last_tick_timestamp_ms = max(self._last_tick_timestamp_ms, filtered[-1].close_time_ms)
 
     def _estimate_backfill_limit(self) -> int:

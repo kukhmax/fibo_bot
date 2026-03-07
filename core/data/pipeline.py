@@ -1,4 +1,5 @@
 import inspect
+import logging
 from typing import Awaitable
 from typing import Callable
 
@@ -13,6 +14,9 @@ from core.data.websocket_client import HyperliquidWsClient
 from core.data.websocket_client import MexcWsClient
 from core.data.websocket_client import PrimaryBackupWsClient
 from core.data.websocket_client import WsRuntimeProtocol
+
+
+logger = logging.getLogger(__name__)
 
 
 class RealtimeCandlePipeline:
@@ -73,11 +77,16 @@ class RealtimeCandlePipeline:
             await self._emit_candle(candle)
 
     async def process_backfill(self, candles: list[Candle]) -> None:
+        if not candles:
+            return
         ordered = sorted(candles, key=lambda item: item.open_time_ms)
+        count = 0
         for candle in ordered:
             if candle.symbol != self.symbol or candle.timeframe != self.timeframe:
                 continue
             await self._emit_candle(candle)
+            count += 1
+        logger.info(f"pipeline_backfill_processed symbol={self.symbol} count={count}")
 
     async def flush(self) -> Candle | None:
         current = self._builder.flush()
@@ -93,6 +102,9 @@ class RealtimeCandlePipeline:
     async def _emit_candle(self, candle: Candle) -> None:
         if self._last_emitted_open_time_ms is not None and candle.open_time_ms <= self._last_emitted_open_time_ms:
             return
+        
+        logger.info(f"pipeline_emit_candle symbol={self.symbol} open_time={candle.open_time_ms} close={candle.close}")
+        
         self._local_history.append(candle)
         self._last_emitted_open_time_ms = candle.open_time_ms
         self._state_cache.set(self._state_key, self._last_emitted_open_time_ms)
@@ -105,7 +117,12 @@ class RealtimeCandlePipeline:
             await result
 
     async def _emit_quality_if_needed(self, report: DataQualityReport) -> None:
-        if report.is_valid or self.on_quality is None:
+        if report.is_valid:
+            return
+        
+        logger.warning(f"data_quality_issue symbol={self.symbol} issues={report.issues}")
+        
+        if self.on_quality is None:
             return
         result = self.on_quality(report)
         if inspect.isawaitable(result):

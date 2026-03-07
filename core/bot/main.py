@@ -2,6 +2,7 @@ from argparse import ArgumentParser
 import asyncio
 from collections import deque
 import json
+import logging
 import os
 import sys
 
@@ -25,14 +26,22 @@ from core.config import load_environment_config
 from core.config import load_runtime_secrets
 
 
+logger = logging.getLogger(__name__)
+
+
 def run(once: bool = False, print_commands: bool = False) -> None:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
     app_env = os.getenv("APP_ENV", "dev")
     config = load_environment_config(app_env)
     secrets = load_runtime_secrets()
     store = TelegramUserProfileStore()
     router = build_default_router(config, profile_store=store)
 
-    print(
+    logger.info(
         f"fib_bot app started env={config.environment} mode={config.bot.mode} "
         f"primary_exchange={config.exchange.primary} token_configured={bool(secrets.telegram_bot_token)}"
     )
@@ -131,6 +140,9 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
         decision = strategies[strategy_name].on_candle(candle)
         if decision.action != "entry":
             return
+
+        logger.info(f"signal_generated strategy={strategy_name} direction={decision.direction} symbol={runtime_symbol} tf={runtime_timeframe} regime={regime.label} confidence={regime.confidence:.2f}")
+
         if news_filter_enabled:
             headline = os.getenv("NEWS_HEADLINE", "")
             news_decision = news_gate.evaluate(headline)
@@ -144,17 +156,18 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
                     except Exception:
                         continue
                     mode = str(payload.get("mode", "signal_only")).lower()
-                if mode not in {"signal_only", "paper", "live"}:
-                    continue
-                
-                is_running = bool(payload.get("is_running", False))
-                if not is_running:
-                    continue
+                    if mode not in {"signal_only", "paper", "live"}:
+                        continue
                     
-                transport.send_text(
-                    chat_id=user_id,
-                    text=f"risk_blocked: news_filter={news_decision.reason}",
-                )
+                    is_running = bool(payload.get("is_running", False))
+                    if not is_running:
+                        continue
+                        
+                    transport.send_text(
+                        chat_id=user_id,
+                        text=f"risk_blocked: news_filter={news_decision.reason}",
+                    )
+                    logger.info(f"signal_blocked type=news user_id={user_id} reason={news_decision.reason}")
                     risk_alert_notifier.maybe_send(
                         transport=transport,
                         chat_id=user_id,
@@ -191,6 +204,7 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
                     continue
                     
                 transport.send_text(chat_id=user_id, text=f"risk_blocked: asset_filter={symbol_reason}")
+                logger.info(f"signal_blocked type=whitelist user_id={user_id} reason={symbol_reason}")
                 risk_alert_notifier.maybe_send(
                     transport=transport,
                     chat_id=user_id,
@@ -204,6 +218,7 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
             inference = ml_filter.evaluate(list(ml_window))
             ml_probability = inference.probability
             if not inference.allow:
+                logger.info(f"signal_blocked type=ml prob={inference.probability:.2f} threshold={ml_filter.min_probability}")
                 return
         state = store._cache.load()
         for key, payload in state.items():
@@ -231,6 +246,7 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
             risk_check = risk_manager.validate_risk_per_trade_pct(risk_value)
             if not risk_check.allowed:
                 transport.send_text(chat_id=user_id, text=f"risk_blocked: {risk_check.reason}")
+                logger.info(f"signal_blocked type=risk user_id={user_id} reason={risk_check.reason}")
                 risk_alert_notifier.maybe_send(
                     transport=transport,
                     chat_id=user_id,
@@ -263,6 +279,7 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
                         f"limit={drawdown_check.max_drawdown_pct:.2f}%{pause_note}"
                     ),
                 )
+                logger.info(f"signal_blocked type=drawdown user_id={user_id} dd={drawdown_check.drawdown_pct:.2f}%")
                 risk_alert_notifier.maybe_send(
                     transport=transport,
                     chat_id=user_id,
@@ -289,6 +306,7 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
                     chat_id=user_id,
                     text=f"risk_blocked: open_positions={open_positions_count} limit={max_open_positions}",
                 )
+                logger.info(f"signal_blocked type=max_pos user_id={user_id} open={open_positions_count} limit={max_open_positions}")
                 risk_alert_notifier.maybe_send(
                     transport=transport,
                     chat_id=user_id,
@@ -308,6 +326,7 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
                 f"explain={decision.explain}"
             )
             transport.send_text(chat_id=user_id, text=text)
+            logger.info(f"signal_sent user_id={user_id} symbol={runtime_symbol} strategy={decision.strategy}")
             if mode == "paper":
                 payload["open_positions_count"] = min(max_open_positions, open_positions_count + 1)
                 store._cache.set(key, payload)
@@ -330,21 +349,21 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
             for pair in desired_pairs:
                 if pair not in tasks:
                     pair_symbol, pair_timeframe = pair
-                    print(f"bot_runtime: pipeline_started symbol={pair_symbol} timeframe={pair_timeframe}")
+                    logger.info(f"pipeline_started symbol={pair_symbol} timeframe={pair_timeframe}")
                     tasks[pair] = asyncio.create_task(run_pipeline_for_pair(pair_symbol, pair_timeframe))
             for pair in tuple(tasks.keys()):
                 if pair in desired_pairs:
                     continue
                 task = tasks.pop(pair)
                 task.cancel()
-                print(f"bot_runtime: pipeline_stopped symbol={pair[0]} timeframe={pair[1]}")
+                logger.info(f"pipeline_stopped symbol={pair[0]} timeframe={pair[1]}")
             for pair, task in tuple(tasks.items()):
                 if not task.done():
                     continue
                 exc = task.exception()
                 tasks.pop(pair, None)
                 if exc is not None:
-                    raise exc
+                    logger.error(f"pipeline_error symbol={pair[0]} timeframe={pair[1]} error={exc}")
             await asyncio.sleep(5)
 
     await asyncio.gather(_run_runtime(runtime, once=False), run_multipair_pipelines())
