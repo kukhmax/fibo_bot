@@ -15,6 +15,7 @@ class TradingPairSettings:
 class TelegramUserProfile:
     user_id: int
     mode: str
+    is_running: bool
     exchange: str
     timeframe: str
     risk_per_trade_pct: float
@@ -39,6 +40,7 @@ class TelegramUserProfileStore:
         created = TelegramUserProfile(
             user_id=user_id,
             mode=config.bot.mode,
+            is_running=False,  # Stopped by default
             exchange=config.exchange.primary,
             timeframe=config.exchange.default_timeframe,
             risk_per_trade_pct=config.risk.risk_per_trade_pct,
@@ -61,6 +63,7 @@ class TelegramUserProfileStore:
         return TelegramUserProfile(
             user_id=int(payload["user_id"]),
             mode=str(payload["mode"]),
+            is_running=bool(payload.get("is_running", False)),
             exchange=str(payload["exchange"]),
             timeframe=str(payload["timeframe"]),
             risk_per_trade_pct=float(payload["risk_per_trade_pct"]),

@@ -84,7 +84,11 @@ class TelegramApiTransport:
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        _fetch_json(req)
+        try:
+            _fetch_json(req)
+        except Exception as e:
+            # We don't want to crash if answering callback fails (e.g. timeout)
+            print(f"DEBUG: Failed to answer callback query {callback_query_id}: {e}")
 
     def _api_url(self, method: str) -> str:
         return f"{self._base_url}/bot{self._bot_token}{method}"
@@ -95,18 +99,42 @@ def _parse_incoming_message(payload: object) -> IncomingMessage | None:
         return None
     if "update_id" not in payload or not isinstance(payload["update_id"], int):
         return None
+        
+    # Debug logging for raw payload (temporary)
+    # print(f"DEBUG: Processing update {payload.get('update_id')}: {json.dumps(payload)}")
+
     if isinstance(payload.get("callback_query"), dict):
         cq = payload["callback_query"]
         data = cq.get("data")
         message = cq.get("message") or {}
         chat = message.get("chat") or {}
         from_user = cq.get("from") or {}
+        
         if not isinstance(data, str) or not data.strip():
+            print(f"DEBUG: Callback query missing data. update_id={payload.get('update_id')}")
             return None
+            
         chat_id = chat.get("id")
         user_id = from_user.get("id")
-        if not isinstance(chat_id, int) or not isinstance(user_id, int):
+        
+        # If message is too old, it might not contain chat info? 
+        # But we need chat_id to route the command context.
+        # Fallback: try to get user_id as chat_id if it's a private chat? 
+        # But we don't know if it's private.
+        
+        if not isinstance(chat_id, int):
+             # Try to recover chat_id from user_id if possible, or log error
+             print(f"DEBUG: Callback query missing chat_id. update_id={payload.get('update_id')}, message_keys={list(message.keys())}")
+             # If it's a DM, chat_id equals user_id. Let's assume user_id if chat_id missing?
+             # But better to just fail and log for now.
+             
+        if not isinstance(user_id, int):
+             print(f"DEBUG: Callback query missing user_id. update_id={payload.get('update_id')}")
+             return None
+             
+        if not isinstance(chat_id, int):
             return None
+
         return IncomingMessage(
             update_id=int(payload["update_id"]),
             chat_id=chat_id,
@@ -114,6 +142,7 @@ def _parse_incoming_message(payload: object) -> IncomingMessage | None:
             text=data.strip(),
             callback_query_id=str(cq.get("id", "")),
         )
+    
     message = payload.get("message")
     if not isinstance(message, dict):
         return None

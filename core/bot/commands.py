@@ -36,8 +36,22 @@ def build_default_router(
     ml_artifact_store: ModelArtifactStore | None = None,
 ) -> CommandRouter:
     router = CommandRouter()
-    router.set_reply_keyboard(_main_menu_reply())
+    # Initial reply keyboard needs a default profile, but we don't know the user_id yet.
+    # So we can't set a global reply keyboard that depends on user state.
+    # Instead, we should set it per-handler or use a default "Stopped" state if generic.
+    # Or better: don't set a global default, let handlers set it.
+    # BUT existing code relies on router.set_reply_keyboard.
+    
+    # Let's create a dummy default for the global router fallback, 
+    # but handlers will override it with user-specific state.
+    dummy_profile = TelegramUserProfile(
+        user_id=0, mode="signal_only", is_running=False, exchange="hyperliquid", timeframe="5m",
+        risk_per_trade_pct=1.0, rr_ratio=2.0, max_daily_drawdown_pct=10.0, max_open_positions=1,
+        sl_pct=0.5, tp_pct=1.0, open_positions_count=0, position_report_minutes=60,
+        trading_pairs=(TradingPairSettings("BTCUSDT", "5m"),)
+    )
     store = profile_store or TelegramUserProfileStore()
+    router.set_reply_keyboard(_main_menu_reply(dummy_profile))
     ml_reporter = MlQualityReporter(artifact_store=ml_artifact_store)
     pair_flow_state = StateCache("runtime/pair_flow_state.json")
 
@@ -66,9 +80,14 @@ def build_default_router(
                 return {"text": _format_profile_error(profile, errors)}
             store.save(updated)
             profile = updated
+        
+        status_icon = "🟢" if profile.is_running else "🔴"
+        status_text = "ЗАПУЩЕН" if profile.is_running else "ОСТАНОВЛЕН"
+        
         text = (
             "👋 Добро пожаловать в Fibo Bot\n"
             "Я помогу настроить сигналы и риск простыми шагами.\n\n"
+            f"Статус: {status_icon} **{status_text}**\n\n"
             f"📌 Режим: {profile.mode}\n"
             f"📈 Биржа: {profile.exchange}\n"
             f"⏱ Таймфрейм: {profile.timeframe}\n"
@@ -81,7 +100,24 @@ def build_default_router(
             f"🔔 Отчёт каждые: {profile.position_report_minutes} мин\n\n"
             "Выбери действие кнопками ниже 👇"
         )
-        return {"text": text}
+        return {"text": text, "reply_keyboard": _main_menu_reply(profile)}
+
+    def toggle_run_handler(ctx: CommandContext, args: str) -> dict:
+        profile = store.get_or_create(ctx.user_id, config)
+        if not _access_write_allowed(config):
+            return {"text": "Режим доступа notify_only: команда недоступна."}
+        
+        target_state = args.strip().lower() == "on"
+        updated = replace(profile, is_running=target_state)
+        store.save(updated)
+        
+        state_text = "🟢 ЗАПУЩЕН" if updated.is_running else "🔴 ОСТАНОВЛЕН"
+        action_text = "Теперь бот отслеживает ваши пары и ищет сигналы." if updated.is_running else "Бот остановлен. Сигналы приходить не будут."
+        
+        return {
+            "text": f"Бот {state_text}\n{action_text}",
+            "reply_keyboard": _main_menu_reply(updated)
+        }
 
     def help_handler(_: CommandContext, __: str) -> str:
         return (
@@ -334,6 +370,31 @@ def build_default_router(
                 return "Неверный формат. Введи так: BTCUSDT 5m"
             return backtest_handler(ctx, f"symbol={symbol} timeframe={timeframe}")
         
+        # Handle Main Menu buttons as text commands
+        cmd_text = args.strip()
+        if cmd_text in {"▶️ Старт", "▶ Старт", "Старт", "Start", "Run"}:
+             return toggle_run_handler(ctx, "on")
+        if cmd_text in {"⏹ Стоп", "⏹ Stop", "Stop", "Стоп"}:
+             return toggle_run_handler(ctx, "off")
+        if cmd_text in {"📊 Статус", "📍 Позиции"}:
+             return status_handler(ctx, "")
+        if cmd_text == "🧩 Пары":
+             return pairs_handler(ctx, "")
+        if cmd_text == "🛡 Риск":
+             return risk_menu_handler(ctx, "")
+        if cmd_text == "🤖 Режим":
+             return mode_menu_handler(ctx, "")
+        if cmd_text == "🧪 Backtest":
+             return backtest_handler(ctx, "")
+        if cmd_text == "🧠 ML отчет":
+             return ml_report_handler(ctx, "")
+        if cmd_text == "📰 News":
+             return news_handler(ctx, "")
+        if cmd_text == "🧭 Readiness":
+             return readiness_handler(ctx, "")
+        if cmd_text == "🙈 Скрыть меню":
+             return hide_menu_handler(ctx, "")
+             
         return "Команда не распознана."
 
     def readiness_handler(ctx: CommandContext, __: str) -> str:
@@ -506,13 +567,14 @@ def build_default_router(
 
     def menu_handler(ctx: CommandContext, __: str) -> dict:
         _clear_flow(ctx.user_id)
+        profile = store.get_or_create(ctx.user_id, config)
         return {
             "text": (
                 "🏠 Главное меню\n"
                 "Выбери раздел кнопками под строкой ввода.\n"
                 "Все кнопки безопасны: они только меняют настройки профиля."
             ),
-            "reply_keyboard": _main_menu_reply(),
+            "reply_keyboard": _main_menu_reply(profile),
         }
 
     def tf_menu_handler(ctx: CommandContext, __: str) -> dict:
@@ -602,6 +664,7 @@ def build_default_router(
         return {"text": text, "reply_keyboard": _backtest_menu_reply()}
 
     router.add_route("/start", start_handler)
+    router.add_route("/run", toggle_run_handler)
     router.add_route("/help", help_handler)
     router.add_route("/hide_menu", hide_menu_handler)
     router.add_route("/mode", mode_handler)
@@ -685,6 +748,7 @@ def _apply_start_updates(
         TelegramUserProfile(
             user_id=profile.user_id,
             mode=mode,
+            is_running=profile.is_running,
             exchange=exchange,
             timeframe=timeframe,
             risk_per_trade_pct=risk_value,
@@ -701,9 +765,11 @@ def _apply_start_updates(
     )
 
 
-def _main_menu_reply() -> tuple[tuple[str, ...], ...]:
+def _main_menu_reply(profile: TelegramUserProfile) -> tuple[tuple[str, ...], ...]:
+    toggle_text = "⏹ Стоп" if profile.is_running else "▶️ Старт"
+    
     return (
-        ("📊 Статус", "📍 Позиции", "🧩 Пары"),
+        (toggle_text, "📊 Статус", "🧩 Пары"),
         ("🛡 Риск", "🤖 Режим", "🧪 Backtest"),
         ("🧠 ML отчет", "📰 News", "🧭 Readiness"),
         ("🙈 Скрыть меню",),

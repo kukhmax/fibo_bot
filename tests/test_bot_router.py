@@ -94,6 +94,24 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Таймфрейм: 15m", status.response_text)
         self.assertIn("Риск: 1.5%", status.response_text)
         self.assertIn("Интервал отчета: 30", status.response_text)
+        
+    async def test_toggle_run_starts_and_stops_bot(self) -> None:
+        config = load_environment_config("dev")
+        router = build_default_router(config, profile_store=self._store)
+        
+        # Start
+        start_res = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/run on"))
+        self.assertIn("ЗАПУЩЕН", start_res.response_text)
+        
+        profile = self._store.get(42)
+        self.assertTrue(profile.is_running)
+        
+        # Stop
+        stop_res = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/run off"))
+        self.assertIn("ОСТАНОВЛЕН", stop_res.response_text)
+        
+        profile = self._store.get(42)
+        self.assertFalse(profile.is_running)
 
     async def test_start_rejects_invalid_profile_values(self) -> None:
         config = load_environment_config("dev")

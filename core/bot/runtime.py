@@ -68,12 +68,23 @@ class TelegramBotRuntime:
                 user_id=update.user_id,
                 text=update.text,
             )
-            result = await self.router.dispatch(context)
+            
+            # Answer callback immediately to prevent spinner timeout
             if update.callback_query_id:
                 try:
                     self.transport.answer_callback_query(update.callback_query_id)
                 except Exception as e:
                     self._log_event(f"answer_callback_query_failed id={update.callback_query_id} error={e}")
+
+            try:
+                result = await self.router.dispatch(context)
+            except Exception as e:
+                self._log_event(f"dispatch_error user_id={update.user_id} error={e}")
+                import traceback
+                traceback.print_exc()
+                self.transport.send_text(update.chat_id, "⚠️ Внутренняя ошибка бота при обработке команды.")
+                continue
+
             self._log_event(
                 f"result handled={result.handled} reply_kb={'yes' if result.reply_keyboard is not None else 'no'} "
                 f"inline_kb={'yes' if result.inline_keyboard is not None else 'no'} text={_short(result.response_text)}"

@@ -144,12 +144,17 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
                     except Exception:
                         continue
                     mode = str(payload.get("mode", "signal_only")).lower()
-                    if mode not in {"signal_only", "paper"}:
-                        continue
-                    transport.send_text(
-                        chat_id=user_id,
-                        text=f"risk_blocked: news_filter={news_decision.reason}",
-                    )
+                if mode not in {"signal_only", "paper", "live"}:
+                    continue
+                
+                is_running = bool(payload.get("is_running", False))
+                if not is_running:
+                    continue
+                    
+                transport.send_text(
+                    chat_id=user_id,
+                    text=f"risk_blocked: news_filter={news_decision.reason}",
+                )
                     risk_alert_notifier.maybe_send(
                         transport=transport,
                         chat_id=user_id,
@@ -178,8 +183,13 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
                 except Exception:
                     continue
                 mode = str(payload.get("mode", "signal_only")).lower()
-                if mode not in {"signal_only", "paper"}:
+                if mode not in {"signal_only", "paper", "live"}:
                     continue
+                
+                is_running = bool(payload.get("is_running", False))
+                if not is_running:
+                    continue
+                    
                 transport.send_text(chat_id=user_id, text=f"risk_blocked: asset_filter={symbol_reason}")
                 risk_alert_notifier.maybe_send(
                     transport=transport,
@@ -204,8 +214,13 @@ async def _run_app(runtime: TelegramBotRuntime, transport: TelegramApiTransport,
             except Exception:
                 continue
             mode = str(payload.get("mode", "signal_only")).lower()
-            if mode not in {"signal_only", "paper"}:
+            if mode not in {"signal_only", "paper", "live"}:
                 continue
+            
+            is_running = bool(payload.get("is_running", False))
+            if not is_running:
+                continue
+                
             if not _profile_has_pair(payload, runtime_symbol, runtime_timeframe):
                 continue
             raw_risk = payload.get("risk_per_trade_pct", config_env.risk.risk_per_trade_pct)
@@ -352,10 +367,17 @@ def _collect_runtime_pairs(
             continue
         if not isinstance(payload, dict):
             continue
+        
+        # Only collect pairs if the user has started the bot
+        is_running = bool(payload.get("is_running", False))
+        if not is_running:
+            continue
+            
         for symbol, timeframe in _extract_profile_pairs(payload):
             pairs.add((symbol, timeframe))
-    if not pairs:
-        pairs.add((default_symbol.strip().upper(), default_timeframe.strip().lower()))
+            
+    # If no active pairs, we might return empty set, which stops all pipelines.
+    # That is correct behavior if no user is running the bot.
     return pairs
 
 
