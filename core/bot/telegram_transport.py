@@ -76,6 +76,16 @@ class TelegramApiTransport:
         )
         _fetch_json(req)
 
+    def answer_callback_query(self, callback_query_id: str) -> None:
+        payload = {"callback_query_id": callback_query_id}
+        req = request.Request(
+            self._api_url("/answerCallbackQuery"),
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        _fetch_json(req)
+
     def _api_url(self, method: str) -> str:
         return f"{self._base_url}/bot{self._bot_token}{method}"
 
@@ -102,6 +112,7 @@ def _parse_incoming_message(payload: object) -> IncomingMessage | None:
             chat_id=chat_id,
             user_id=user_id,
             text=data.strip(),
+            callback_query_id=str(cq.get("id", "")),
         )
     message = payload.get("message")
     if not isinstance(message, dict):

@@ -16,6 +16,7 @@ class IncomingMessage:
     chat_id: int
     user_id: int
     text: str
+    callback_query_id: str | None = None
 
 
 class TelegramTransportProtocol(Protocol):
@@ -29,6 +30,9 @@ class TelegramTransportProtocol(Protocol):
         reply_keyboard: tuple[tuple[str, ...], ...] | None = None,
         inline_keyboard: tuple[tuple[tuple[str, str], ...], ...] | None = None,
     ) -> None:
+        ...
+
+    def answer_callback_query(self, callback_query_id: str) -> None:
         ...
 
 
@@ -65,6 +69,11 @@ class TelegramBotRuntime:
                 text=update.text,
             )
             result = await self.router.dispatch(context)
+            if update.callback_query_id:
+                try:
+                    self.transport.answer_callback_query(update.callback_query_id)
+                except Exception as e:
+                    self._log_event(f"answer_callback_query_failed id={update.callback_query_id} error={e}")
             self._log_event(
                 f"result handled={result.handled} reply_kb={'yes' if result.reply_keyboard is not None else 'no'} "
                 f"inline_kb={'yes' if result.inline_keyboard is not None else 'no'} text={_short(result.response_text)}"

@@ -414,13 +414,18 @@ def build_default_router(
         
         try:
             artifact = pipeline.run(candle_limit=3000, epochs=50)
-            return (
+            text = (
                 f"✅ **Обучение завершено!**\n"
-                f"Модель сохранена.\n\n"
+                f"Модель сохранена и активна.\n\n"
                 f"🎯 Accuracy: {artifact.validation_accuracy:.2%}\n"
                 f"📊 Samples: {artifact.train_size + artifact.validation_size}\n"
                 f"Параметры: {symbol} {timeframe}"
             )
+            # Re-build report to show updated state (simulating 'refresh')
+            report_text = ml_reporter.build_report()
+            # If the user sees this message, they know it's done. 
+            # Ideally we would edit the previous message, but sending a new one with full report is also fine.
+            return f"{text}\n\n━━━━━━━━━━━━━━━━\n\n{report_text}"
         except Exception as e:
             return f"❌ Ошибка обучения: {str(e)}"
 
