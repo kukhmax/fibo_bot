@@ -177,6 +177,7 @@ def build_default_router(
             return _format_profile_error(profile, errors)
         updated = replace(profile, risk_per_trade_pct=risk)
         store.save(updated)
+        _clear_flow(ctx.user_id)
         return f"✅ Риск на сделку обновлен: {updated.risk_per_trade_pct}%"
 
     def set_rr_handler(ctx: CommandContext, args: str) -> str:
@@ -192,6 +193,7 @@ def build_default_router(
             return _format_profile_error(profile, errors)
         updated = replace(profile, rr_ratio=rr)
         store.save(updated)
+        _clear_flow(ctx.user_id)
         return f"✅ Risk/Reward обновлен: {updated.rr_ratio}"
 
     def set_dd_handler(ctx: CommandContext, args: str) -> str:
@@ -207,6 +209,7 @@ def build_default_router(
             return _format_profile_error(profile, errors)
         updated = replace(profile, max_daily_drawdown_pct=max_dd)
         store.save(updated)
+        _clear_flow(ctx.user_id)
         return f"✅ Лимит дневной просадки обновлен: {updated.max_daily_drawdown_pct}%"
 
     def set_maxpos_handler(ctx: CommandContext, args: str) -> str:
@@ -222,6 +225,7 @@ def build_default_router(
             return _format_profile_error(profile, errors)
         updated = replace(profile, max_open_positions=max_pos)
         store.save(updated)
+        _clear_flow(ctx.user_id)
         return f"✅ Лимит открытых позиций обновлен: {updated.max_open_positions}"
 
     def set_sl_handler(ctx: CommandContext, args: str) -> str:
@@ -237,6 +241,7 @@ def build_default_router(
             return _format_profile_error(profile, errors)
         updated = replace(profile, sl_pct=sl)
         store.save(updated)
+        _clear_flow(ctx.user_id)
         return f"✅ Стоп-лосс обновлен: {updated.sl_pct}%"
 
     def set_tp_handler(ctx: CommandContext, args: str) -> str:
@@ -252,6 +257,7 @@ def build_default_router(
             return _format_profile_error(profile, errors)
         updated = replace(profile, tp_pct=tp)
         store.save(updated)
+        _clear_flow(ctx.user_id)
         return f"✅ Тейк-профит обновлен: {updated.tp_pct}%"
 
     def close_handler(ctx: CommandContext, __: str) -> str:
