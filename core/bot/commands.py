@@ -419,7 +419,7 @@ def build_default_router(
         text = (
             "🚫 Настройка дневной просадки (DD)\n"
             f"Сейчас: {profile.max_daily_drawdown_pct}%\n"
-            "Введи число (например: 5 или 10):"
+            "Введи число (например: 10 или 20):"
         )
         reply = (("⬅️ Назад", "🏠 Меню"),)
         return {"text": text, "reply_keyboard": reply}
@@ -482,17 +482,18 @@ def build_default_router(
     def mode_menu_handler(ctx: CommandContext, __: str) -> dict:
         profile = store.get_or_create(ctx.user_id, config)
         text = (
-            "🤖 Выбор режима\n"
-            f"Сейчас: {profile.mode}\n"
-            "signal_only — только сигналы\n"
-            "paper — тест без реальных денег\n"
-            "live — боевой режим"
+            "🤖 **Настройка режима работы**\n"
+            "━━━━━━━━━━━━━━━━\n\n"
+            f"Текущий статус: **{profile.mode}**\n\n"
+            "🔔 **Signal Only**\n"
+            "Только уведомления о сигналах. Торговля отключена.\n\n"
+            "🧪 **Paper Trading**\n"
+            "Симуляция торговли на виртуальном счете. Идеально для тестов.\n\n"
+            "🔥 **Live Trading**\n"
+            "Реальная торговля на бирже. Используются ваши средства!\n\n"
+            "👇 Выбери режим кнопками внизу:"
         )
-        inline = (
-            (("🔔 Только сигналы", "/mode signal_only"), ("🧪 Paper", "/mode paper"), ("🔥 Live", "/mode live")),
-            (("🏠 Главное меню", "/menu"),),
-        )
-        return {"text": text, "inline_keyboard": inline}
+        return {"text": text, "reply_keyboard": _mode_menu_reply()}
 
     def backtest_handler(_: CommandContext, args: str) -> dict:
         symbol = ""
@@ -644,9 +645,16 @@ def _apply_start_updates(
 def _main_menu_reply() -> tuple[tuple[str, ...], ...]:
     return (
         ("📊 Статус", "📍 Позиции", "🧩 Пары"),
-        ("⏱ Таймфрейм", "🛡 Риск", "🤖 Режим"),
-        ("🧪 Backtest", "🧠 ML отчет", "📰 News"),
-        ("🧭 Readiness", "🙈 Скрыть меню"),
+        ("🛡 Риск", "🤖 Режим", "🧪 Backtest"),
+        ("🧠 ML отчет", "📰 News", "🧭 Readiness"),
+        ("🙈 Скрыть меню",),
+    )
+
+
+def _mode_menu_reply() -> tuple[tuple[str, ...], ...]:
+    return (
+        ("🔔 Только сигналы", "🧪 Paper", "🔥 Live"),
+        ("🏠 Меню",),
     )
 
 
@@ -746,8 +754,8 @@ def _parse_max_daily_drawdown(raw: str, errors: list[str]) -> float:
     except ValueError:
         errors.append("dd должен быть числом")
         return 0.0
-    if value <= 0 or value > 10:
-        errors.append("dd должен быть в диапазоне 1..10")
+    if value <= 0 or value > 60:
+        errors.append("dd должен быть в диапазоне 1..60")
     return value
 
 

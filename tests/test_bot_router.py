@@ -144,10 +144,10 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
     async def test_set_dd_command_updates_profile(self) -> None:
         config = load_environment_config("dev")
         router = build_default_router(config, profile_store=self._store)
-        dd_result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/set_dd 8"))
+        dd_result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/set_dd 20"))
         status_result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/status"))
-        self.assertIn("Лимит дневной просадки обновлен: 8.0%", dd_result.response_text)
-        self.assertIn("DD: 8.0%", status_result.response_text)
+        self.assertIn("Лимит дневной просадки обновлен: 20.0%", dd_result.response_text)
+        self.assertIn("DD: 20.0%", status_result.response_text)
 
     async def test_set_maxpos_command_updates_profile(self) -> None:
         config = load_environment_config("dev")
@@ -200,8 +200,33 @@ class TestBotRouter(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(result.reply_keyboard)
         assert result.reply_keyboard is not None
         labels = [title for row in result.reply_keyboard for title in row]
-        self.assertTrue(any("⏱" in item for item in labels))
         self.assertTrue(any("🛡" in item for item in labels))
+        self.assertFalse(any("⏱" in item for item in labels))  # Timeframe should be gone
+
+    async def test_mode_menu_returns_reply_keyboard_with_emojis(self) -> None:
+        config = load_environment_config("dev")
+        router = build_default_router(config, profile_store=self._store)
+        result = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="/mode_menu"))
+        self.assertTrue(result.handled)
+        self.assertIn("Настройка режима работы", result.response_text)
+        self.assertIsNotNone(result.reply_keyboard)
+        assert result.reply_keyboard is not None
+        labels = [label for row in result.reply_keyboard for label in row]
+        self.assertTrue(any("🔔 Только сигналы" in label for label in labels))
+        self.assertTrue(any("🧪 Paper" in label for label in labels))
+        self.assertTrue(any("🔥 Live" in label for label in labels))
+
+    async def test_mode_reply_keyboard_buttons_dispatch_commands(self) -> None:
+        config = load_environment_config("dev")
+        router = build_default_router(config, profile_store=self._store)
+        
+        signal_res = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="🔔 Только сигналы"))
+        paper_res = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="🧪 Paper"))
+        live_res = await router.dispatch(CommandContext(chat_id=1, user_id=42, text="🔥 Live"))
+        
+        self.assertIn("Режим обновлен: signal_only", signal_res.response_text)
+        self.assertIn("Режим обновлен: paper", paper_res.response_text)
+        self.assertIn("Режим обновлен: live", live_res.response_text)
 
     async def test_reply_keyboard_text_button_dispatches_command(self) -> None:
         config = load_environment_config("dev")

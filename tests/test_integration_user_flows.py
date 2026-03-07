@@ -82,7 +82,7 @@ class TestIntegrationUserFlows(unittest.IsolatedAsyncioTestCase):
             processed = await runtime.process_once()
 
             self.assertEqual(processed, 6)
-            self.assertIn("Выбор режима", transport.sent_messages[0][1])
+            self.assertIn("Настройка режима работы", transport.sent_messages[0][1])
             self.assertIn("Режим обновлен: paper", transport.sent_messages[1][1])
             self.assertIn("Настройка Risk", transport.sent_messages[2][1])
             self.assertIn("Риск на сделку обновлен: 1.0%", transport.sent_messages[3][1])

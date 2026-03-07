@@ -106,6 +106,9 @@ class CommandRouter:
                 "🧯 SL": "/risk_sl",
                 "💰 TP": "/risk_tp",
                 "❌ Закрыть позицию": "/close",
+                "🔔 Только сигналы": "/mode signal_only",
+                "🧪 Paper": "/mode paper",
+                "🔥 Live": "/mode live",
                 "🔄 Обновить": "/risk",
                 "⬅️ Назад": "/risk",
             }
